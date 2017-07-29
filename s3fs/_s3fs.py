@@ -15,6 +15,34 @@ from fs.path import abspath, basename, normpath, relpath
 from fs.time import datetime_to_epoch
 
 
+def _make_repr(class_name, *args, **kwargs):
+    """
+    Generate a repr string.
+
+    Positional arguments should be the positional arguments used to
+    construct the class. Keyword arguments should consist of tuples of
+    the attribute value and default. If the value is the default, then
+    it won't be rendered in the output.
+
+    Here's an example::
+
+        def __repr__(self):
+            return make_repr('MyClass', 'foo', name=(self.name, None))
+
+    The output of this would be something line ``MyClass('foo',
+    name='Will')``.
+
+    """
+    arguments = [repr(arg) for arg in args]
+    arguments.extend([
+        "{}={!r}".format(name, value)
+        for name, (value, default) in sorted(kwargs.items())
+        if value != default
+    ])
+    return "{}({})".format(class_name, ', '.join(arguments))
+
+
+
 class S3FS(FS):
 
     def __init__(self,
@@ -33,12 +61,11 @@ class S3FS(FS):
         self._tlocal = threading.local()
 
     def __repr__(self):
-        _fmt = "{}({!r}, region={!r}, delimiter={!r})"
-        return _fmt.format(
+        return _make_repr(
             self.__class__.__name__,
             self._bucket_name,
-            self.region,
-            self.delimiter
+            region=(self.region, None),
+            delimiter=(self.delimiter, '/')
         )
 
     def __str__(self):
@@ -65,14 +92,15 @@ class S3FS(FS):
         return key.replace(self.delimiter, '/')
 
     def _get_object(self, path, key):
+        _key = key.rstrip(self.delimiter)
         try:
-            obj = self.s3.Object(self._bucket_name, key)
+            obj = self.s3.Object(self._bucket_name, _key)
             obj.load()
         except ClientError as error:
             error_code = int(error.response['Error']['Code'])
             if error_code == 404:
                 try:
-                    obj = self.s3.Object(self._bucket_name, key + self.delimiter)
+                    obj = self.s3.Object(self._bucket_name, _key + self.delimiter)
                     obj.load()
                 except ClientError as error:
                     error_code = int(error.response['Error']['Code'])
@@ -112,11 +140,7 @@ class S3FS(FS):
         obj = self._get_object(path, _key)
 
         name = basename(self.key_to_path(_key))
-        _children = self.bucket.objects.filter(
-            Prefix=_key + self.delimiter,
-            Delimiter=self.delimiter,
-        ).limit(1)
-        is_dir = bool(list(_children))
+        is_dir = obj.key.endswith(self.delimiter)
 
         info = {
             'basic': {
@@ -185,7 +209,7 @@ class S3FS(FS):
             pass
         else:
             if recreate:
-                return
+                return self.opendir(_path)
             else:
                 raise errors.DirectoryExists(path)
         response = self.s3.Object(self._bucket_name, _key).put()
