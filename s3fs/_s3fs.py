@@ -9,6 +9,7 @@ from botocore.exceptions import ClientError
 
 from fs import ResourceType
 from fs.base import FS
+from fs.info import Info
 from fs import errors
 from fs.path import abspath, basename, normpath, relpath
 from fs.time import datetime_to_epoch
@@ -66,10 +67,19 @@ class S3FS(FS):
     def _get_object(self, path, key):
         try:
             obj = self.s3.Object(self._bucket_name, key)
+            obj.load()
         except ClientError as error:
             error_code = int(error.response['Error']['Code'])
             if error_code == 404:
-                raise errors.ResourceNotFound(path)
+                try:
+                    obj = self.s3.Object(self._bucket_name, key + self.delimiter)
+                    obj.load()
+                except ClientError as error:
+                    error_code = int(error.response['Error']['Code'])
+                    if error_code == 404:
+                        raise errors.ResourceNotFound(path)
+                else:
+                    return obj
             raise errors.ResourceError(path)
         else:
             return obj
@@ -106,7 +116,7 @@ class S3FS(FS):
             Prefix=_key + self.delimiter,
             Delimiter=self.delimiter,
         ).limit(1)
-        is_dir = bool(len(_children))
+        is_dir = bool(list(_children))
 
         info = {
             'basic': {
@@ -115,16 +125,16 @@ class S3FS(FS):
             }
         }
 
-        _type = (ResourceType.directory if is_dir else ResourceType.file)
+        _type = int(ResourceType.directory if is_dir else ResourceType.file)
         if 'details' in namespaces:
             info['details'] = {
-                'access': None,
+                'accessed': None,
                 'modified': datetime_to_epoch(obj.last_modified),
                 'size': obj.content_length,
                 'type': _type
             }
 
-        return info
+        return Info(info)
 
     def listdir(self, path):
         _path = self.validatepath(path)
@@ -145,7 +155,7 @@ class S3FS(FS):
                 _name = _prefix[prefix_len:]
                 if _name != _s3_key:
                     _directory.append(_name.rstrip(self.delimiter))
-            for obj in result['Contents']:
+            for obj in result.get('Contents', ()):
                 name = obj["Key"][prefix_len:]
                 if name:
                     _directory.append(name)
@@ -167,7 +177,7 @@ class S3FS(FS):
     def makedir(self, path, permission=None, recreate=False):
         self.check()
         _path = self.validatepath(path)
-        _key = self.path_to_key(_path)
+        _key = self.path_to_dir_key(_path)
 
         try:
             info = self.getinfo(path)
@@ -178,8 +188,8 @@ class S3FS(FS):
                 return
             else:
                 raise errors.DirectoryExists(path)
-        _key = _key + self.delimiter
         response = self.s3.Object(self._bucket_name, _key).put()
+        return self.opendir(_path)
 
     def openbin(self, path, mode="r", buffering=-1, **options):
         pass
