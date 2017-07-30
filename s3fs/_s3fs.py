@@ -95,6 +95,7 @@ class S3FS(FS):
         self._client = None
 
         self._tlocal = threading.local()
+        super(S3FS, self).__init__()
 
     def __repr__(self):
         return _make_repr(
@@ -219,6 +220,10 @@ class S3FS(FS):
                 if name:
                     _directory.append(name)
 
+        if not _directory:
+            if not self.getinfo(path).is_dir:
+                raise errors.DirectoryExpected(path)
+
         return _directory
 
     def makedir(self, path, permission=None, recreate=False):
@@ -318,4 +323,4 @@ class S3FS(FS):
         )
 
     def setinfo(self, path, info):
-        pass
+        getinfo(path)
