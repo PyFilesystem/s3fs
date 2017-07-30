@@ -9,6 +9,7 @@ import threading
 import boto3
 from botocore.exceptions import ClientError
 
+import six
 from six import text_type
 
 from fs import ResourceType
@@ -70,16 +71,26 @@ class S3File(object):
         self._on_close = on_close
 
     def close(self):
-        if not self._f.closed:
-            if self._on_close(self._f):
-                self._f.close()
+        print("Close")
+        if self._on_close is not None:
+            self._on_close(self._f)
 
     def __getattr__(self, key):
         return getattr(self._f, key)
 
 
-
+@six.python_2_unicode_compatible
 class S3FS(FS):
+
+    _meta = {
+        'case_insensitive': False,
+        'invalid_path_chars': '\0',
+        'network': True,
+        'read_only': False,
+        'thread_safe': True,
+        'unicode_paths': True,
+        'virtual': False,
+    }
 
     def __init__(self,
                  bucket_name,
@@ -221,7 +232,7 @@ class S3FS(FS):
                     _directory.append(name)
 
         if not _directory:
-            if not self.getinfo(path).is_dir:
+            if not self.getinfo(_path).is_dir:
                 raise errors.DirectoryExpected(path)
 
         return _directory
@@ -257,7 +268,19 @@ class S3FS(FS):
                 self.client.upload_fileobj(proxy_file, self._bucket_name, _key)
                 return True
 
+            if _mode.exclusive:
+                try:
+                    self.getinfo(path)
+                except errors.ResourceNotFound:
+                    pass
+                else:
+                    raise errors.FileExists(path)
+
             proxy_file = S3File.factory(path, _mode, on_close=on_close)
+            if _mode.appending:
+                self.client.download_fileobj(self._bucket_name, _key, proxy_file)
+                proxy_file.seek(0, os.SEEK_END)
+
             return proxy_file
 
         info = self.getinfo(path)
@@ -271,10 +294,8 @@ class S3FS(FS):
             return True
 
         proxy_file = S3File.factory(path, _mode, on_close=on_close)
-
         self.client.download_fileobj(self._bucket_name, _key, proxy_file)
-        if not _mode.appending:
-            proxy_file.seek(0, os.SEEK_SET)
+        proxy_file.seek(0, os.SEEK_SET)
 
         return proxy_file
 
@@ -323,4 +344,4 @@ class S3FS(FS):
         )
 
     def setinfo(self, path, info):
-        getinfo(path)
+        self.getinfo(path)
