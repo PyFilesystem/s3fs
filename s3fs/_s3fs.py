@@ -70,6 +70,13 @@ class S3File(object):
         self.__mode = mode
         self._on_close = on_close
 
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close
+
     def close(self):
         print("Close")
         if self._on_close is not None:
@@ -77,6 +84,22 @@ class S3File(object):
 
     def __getattr__(self, key):
         return getattr(self._f, key)
+
+
+class S3ClientErrors(object):
+
+    def __init__(self, path):
+        self.path = path
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if exc_type is ClientError:
+            error = exc_value
+            error_code = int(error.response['Error']['Code'])
+            if error_code == 404:
+                raise errors.ResourceNotFound(self.path)
 
 
 @six.python_2_unicode_compatible
@@ -184,6 +207,20 @@ class S3FS(FS):
         _path = self.validatepath(path)
         _key = self._path_to_key(_path)
 
+        if _path == '/':
+            return Info({
+                "basic":
+                {
+                    "name": "",
+                    "is_dir": True
+                },
+                "details":
+                {
+                    "type": int(ResourceType.directory)
+                }
+            })
+
+
         obj = self._get_object(path, _key)
 
         name = basename(self._key_to_path(_key))
@@ -278,8 +315,13 @@ class S3FS(FS):
 
             proxy_file = S3File.factory(path, _mode, on_close=on_close)
             if _mode.appending:
-                self.client.download_fileobj(self._bucket_name, _key, proxy_file)
-                proxy_file.seek(0, os.SEEK_END)
+                try:
+                    with S3ClientErrors(path):
+                        self.client.download_fileobj(self._bucket_name, _key, proxy_file)
+                except errors.ResourceNotFound:
+                    pass
+                else:
+                    proxy_file.seek(0, os.SEEK_END)
 
             return proxy_file
 
@@ -294,7 +336,8 @@ class S3FS(FS):
             return True
 
         proxy_file = S3File.factory(path, _mode, on_close=on_close)
-        self.client.download_fileobj(self._bucket_name, _key, proxy_file)
+        with S3ClientErrors(path):
+            self.client.download_fileobj(self._bucket_name, _key, proxy_file)
         proxy_file.seek(0, os.SEEK_SET)
 
         return proxy_file
@@ -314,7 +357,7 @@ class S3FS(FS):
 
     def isempty(self, path):
         self.check()
-        _path = self.validatepath()
+        _path = self.validatepath(path)
         _key = self._path_to_key(_path)
         response = self.client.list_objects(
             Bucket=self._bucket_name,
