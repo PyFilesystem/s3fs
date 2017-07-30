@@ -2,15 +2,20 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import os
+import tempfile
 import threading
 
 import boto3
 from botocore.exceptions import ClientError
 
+from six import text_type
+
 from fs import ResourceType
 from fs.base import FS
 from fs.info import Info
 from fs import errors
+from fs.mode import Mode
 from fs.path import abspath, basename, normpath, relpath
 from fs.time import datetime_to_epoch
 
@@ -40,6 +45,37 @@ def _make_repr(class_name, *args, **kwargs):
         if value != default
     ])
     return "{}({})".format(class_name, ', '.join(arguments))
+
+
+
+class S3File(object):
+
+    @classmethod
+    def factory(cls, filename, mode, on_close):
+        f  = tempfile.TemporaryFile()
+        proxy = cls(f, filename, mode, on_close=on_close)
+        return proxy
+
+    def __repr__(self):
+        return _make_repr(
+            self.__class__.__name__,
+            self.__filename,
+            text_type(self.__mode)
+        )
+
+    def __init__(self, f, filename, mode, on_close=None):
+        self._f = f
+        self.__filename = filename
+        self.__mode = mode
+        self._on_close = on_close
+
+    def close(self):
+        if not self._f.closed:
+            if self._on_close(self._f):
+                self._f.close()
+
+    def __getattr__(self, key):
+        return getattr(self._f, key)
 
 
 
@@ -75,32 +111,31 @@ class S3FS(FS):
             self._bucket_name
         )
 
-    def path_to_key(self, path):
+    def _path_to_key(self, path):
         """Converts an fs path to a s3 key."""
         return relpath(
             normpath(path)
         ).replace('/', self.delimiter)
 
-    def path_to_dir_key(self, path):
+    def _path_to_dir_key(self, path):
         """Converts an fs path to a s3 key."""
         _key = relpath(
             normpath(path)
         ).replace('/', self.delimiter)
         return _key + self.delimiter if _key else _key
 
-    def key_to_path(self, key):
+    def _key_to_path(self, key):
         return key.replace(self.delimiter, '/')
 
     def _get_object(self, path, key):
-        _key = key.rstrip(self.delimiter)
         try:
-            obj = self.s3.Object(self._bucket_name, _key)
+            obj = self.s3.Object(self._bucket_name, key + self.delimiter)
             obj.load()
         except ClientError as error:
             error_code = int(error.response['Error']['Code'])
             if error_code == 404:
                 try:
-                    obj = self.s3.Object(self._bucket_name, _key + self.delimiter)
+                    obj = self.s3.Object(self._bucket_name, key.rstrip(self.delimiter))
                     obj.load()
                 except ClientError as error:
                     error_code = int(error.response['Error']['Code'])
@@ -135,11 +170,11 @@ class S3FS(FS):
         self.check()
         namespaces = namespaces or ()
         _path = self.validatepath(path)
-        _key = self.path_to_key(_path)
+        _key = self._path_to_key(_path)
 
         obj = self._get_object(path, _key)
 
-        name = basename(self.key_to_path(_key))
+        name = basename(self._key_to_path(_key))
         is_dir = obj.key.endswith(self.delimiter)
 
         info = {
@@ -162,7 +197,7 @@ class S3FS(FS):
 
     def listdir(self, path):
         _path = self.validatepath(path)
-        _s3_key = self.path_to_dir_key(_path)
+        _s3_key = self._path_to_dir_key(_path)
         prefix_len = len(_s3_key)
 
         paginator = self.client.get_paginator('list_objects')
@@ -186,25 +221,13 @@ class S3FS(FS):
 
         return _directory
 
-        objects = self.bucket.objects.filter(
-            Prefix=_s3_key,
-            Delimiter=self.delimiter
-        )
-        prefix_len = len(_s3_key)
-        _directory = [
-            obj.key[prefix_len:]
-            for obj in objects
-            if obj.key != _s3_key
-        ]
-        return _directory
-
     def makedir(self, path, permission=None, recreate=False):
         self.check()
         _path = self.validatepath(path)
-        _key = self.path_to_dir_key(_path)
+        _key = self._path_to_dir_key(_path)
 
         try:
-            info = self.getinfo(path)
+            self.getinfo(path)
         except errors.ResourceNotFound:
             pass
         else:
@@ -212,17 +235,87 @@ class S3FS(FS):
                 return self.opendir(_path)
             else:
                 raise errors.DirectoryExists(path)
-        response = self.s3.Object(self._bucket_name, _key).put()
+        self.s3.Object(self._bucket_name, _key).put()
         return self.opendir(_path)
 
     def openbin(self, path, mode="r", buffering=-1, **options):
-        pass
+        _mode = Mode(mode)
+        _mode.validate_bin()
+        self.check()
+        _path = self.validatepath(path)
+        _key = self._path_to_key(_path)
+
+        if _mode.create:
+
+            def on_close(proxy_file):
+                proxy_file.seek(0)
+                self.client.upload_fileobj(proxy_file, self._bucket_name, _key)
+                return True
+
+            proxy_file = S3File.factory(path, _mode, on_close=on_close)
+            return proxy_file
+
+        info = self.getinfo(path)
+        if info.is_dir:
+            raise errors.FileExpected(path)
+
+        def on_close(proxy_file):
+            if _mode.writing:
+                proxy_file.seek(0, os.SEEK_SET)
+                self.client.upload_fileobj(proxy_file, self._bucket_name, _key)
+            return True
+
+        proxy_file = S3File.factory(path, _mode, on_close=on_close)
+
+        self.client.download_fileobj(self._bucket_name, _key, proxy_file)
+        if not _mode.appending:
+            proxy_file.seek(0, os.SEEK_SET)
+
+        return proxy_file
+
 
     def remove(self, path):
-        pass
+        self.check()
+        _path = self.validatepath(path)
+        _key = self._path_to_key(_path)
+        info = self.getinfo(_path)
+        if info.is_dir:
+            raise errors.FileExpected(path)
+        self.client.delete_bucket(
+            Bucket=self._bucket_name,
+            Key=_key
+        )
+
+    def isempty(self, path):
+        self.check()
+        _path = self.validatepath()
+        _key = self._path_to_key(_path)
+        response = self.client.list_objects(
+            Bucket=self._bucket_name,
+            Prefix=_key + self.delimiter,
+            MaxKeys=2,
+        )
+        contents = response.get("Contents", ())
+        for obj in contents:
+            if obj["Key"] != _key:
+                return False
+        return True
 
     def removedir(self, path):
-        pass
+        self.check()
+        _path = self.validatepath(path)
+        _key = self._path_to_key(_path)
+        if _path == '/':
+            raise errors.RemoveRootError()
+        info = self.getinfo(_path)
+        if not info.is_dir:
+            raise errors.DirectoryExpected(path)
+        if not self.isempty(path):
+            raise errors.DirectoryNotEmpty(path)
+        self.client.delete_bucket(
+            Bucket=self._bucket_name,
+            Key=_key
+        )
 
     def setinfo(self, path, info):
         pass

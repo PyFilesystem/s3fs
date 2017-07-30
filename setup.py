@@ -24,7 +24,8 @@ with open('README.rst', 'rt') as f:
 
 REQUIREMENTS = [
     "boto3~=1.4.4",
-    "fs~=2.0.4"
+    "fs~=2.0.4",
+    "six~=1.10.0"
 ]
 
 setup(
