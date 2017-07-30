@@ -78,7 +78,6 @@ class S3File(object):
         self.close
 
     def close(self):
-        print("Close")
         if self._on_close is not None:
             self._on_close(self._f)
 
@@ -274,7 +273,7 @@ class S3FS(FS):
 
         return _directory
 
-    def makedir(self, path, permission=None, recreate=False):
+    def makedir(self, path, permissions=None, recreate=False):
         self.check()
         _path = self.validatepath(path)
         _key = self._path_to_dir_key(_path)
@@ -350,7 +349,7 @@ class S3FS(FS):
         info = self.getinfo(_path)
         if info.is_dir:
             raise errors.FileExpected(path)
-        self.client.delete_bucket(
+        self.client.delete_object(
             Bucket=self._bucket_name,
             Key=_key
         )
@@ -381,7 +380,7 @@ class S3FS(FS):
             raise errors.DirectoryExpected(path)
         if not self.isempty(path):
             raise errors.DirectoryNotEmpty(path)
-        self.client.delete_bucket(
+        self.client.delete_object(
             Bucket=self._bucket_name,
             Key=_key
         )
