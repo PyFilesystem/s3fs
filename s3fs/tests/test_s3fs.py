@@ -8,7 +8,7 @@ from s3fs import S3FS
 
 import boto3
 
-class TestMemoryFS(FSTestCases, unittest.TestCase):
+class TestS3FS(FSTestCases, unittest.TestCase):
     """Test OSFS implementation."""
     bucket_name = 'fsexample'
     s3 = boto3.resource('s3')
