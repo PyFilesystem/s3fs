@@ -2,7 +2,7 @@
 
 from setuptools import setup, find_packages
 
-with open('s3fs/_version.py') as f:
+with open('fs_s3fs/_version.py') as f:
     exec(f.read())
 
 CLASSIFIERS = [
@@ -24,23 +24,26 @@ with open('README.rst', 'rt') as f:
 
 REQUIREMENTS = [
     "boto3~=1.4.5",
-    "fs~=2.0.5",
+    "fs==2.0.6a2",
     "six~=1.10.0"
 ]
 
 setup(
+    name='fs-s3fs',
     author="Will McGugan",
     author_email="willmcgugan@gmail.com",
     classifiers=CLASSIFIERS,
-    description="Amazon S3 filesystem for PyFilesystem",
+    description="Amazon S3 filesystem for PyFilesystem2",
     install_requires=REQUIREMENTS,
     license="MIT",
     long_description=DESCRIPTION,
-    name='s3fs',
-    packages=find_packages(exclude=("tests",)),
+    packages=find_packages(),
+    keywords=['pyfilesystem', 'Amazon', 's3'],
     platforms=['any'],
     test_suite="nose.collector",
-    #tests_require=['appdirs', 'mock', 'pytz', 'pyftpdlib'],
     url="https://github.com/PyFilesystem/s3fs",
     version=__version__,
+    entry_points={'fs.opener': [
+         's3 = fs_s3fs.opener:S3FSOpener',
+    ]},
 )
