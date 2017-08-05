@@ -72,9 +72,9 @@ S3 Info
 
 You can retrieve S3 info via the ``s3`` namespace. Here's an example:
 
-    >>> info = s.getinfo(u'foo', namespaces=['s3'])
+    >>> info = s.getinfo('foo', namespaces=['s3'])
     >>> info.raw['s3']
-    {u'content_length': 3, u'restore': None, u'sse_customer_key_md5': None, u'content_language': None, u'replication_status': None, u'server_side_encryption': None, u'parts_count': None, u'sse_customer_algorithm': None, u'missing_meta': None, u'delete_marker': None, u'content_encoding': None, u'accept_ranges': 'bytes', u'cache_control': None, u'metadata': {}, u'request_charged': None, u'e_tag': '"37b51d194a7513e45b56f6524f2d51f2"', u'expires': None, u'version_id': None, u'last_modified': 1501935315, u'content_type': 'binary/octet-stream', u'website_redirect_location': None, u'ssekms_key_id': None, u'content_disposition': None, u'storage_class': None, u'expiration': None}
+    {'metadata': {}, 'delete_marker': None, 'version_id': None, 'parts_count': None, 'accept_ranges': 'bytes', 'last_modified': 1501935315, 'content_length': 3, 'content_encoding': None, 'request_charged': None, 'replication_status': None, 'server_side_encryption': None, 'expires': None, 'restore': None, 'content_type': 'binary/octet-stream', 'sse_customer_key_md5': None, 'content_disposition': None, 'storage_class': None, 'expiration': None, 'missing_meta': None, 'content_language': None, 'ssekms_key_id': None, 'sse_customer_algorithm': None, 'e_tag': '"37b51d194a7513e45b56f6524f2d51f2"', 'website_redirect_location': None, 'cache_control': None}
 
 
 URLs
@@ -85,12 +85,6 @@ URL from an S3 object. Here's an example:
 
 >>> s3fs.geturl('foo')
 'https://fsexample.s3.amazonaws.com//foo?AWSAccessKeyId=AKIAIEZZDQU72WQP3JUA&Expires=1501939084&Signature=4rfDuqVgmvILjtTeYOJvyIXRMvs%3D'
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-
-   s3fs.rst
 
 
 More Information

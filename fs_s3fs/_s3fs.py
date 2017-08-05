@@ -24,7 +24,7 @@ from fs.base import FS
 from fs.info import Info
 from fs import errors
 from fs.mode import Mode
-from fs.path import basename, dirname, forcedir, normpath, relpath
+from fs.path import basename, dirname, forcedir, join, normpath, relpath
 from fs.time import datetime_to_epoch
 
 
@@ -285,7 +285,9 @@ class S3FS(FS):
         )
 
     def __str__(self):
-        return self.__repr__()
+        return "<s3fs '{}'>".format(
+            join(self._bucket_name, relpath(self.dir_path))
+        )
 
     def _path_to_key(self, path):
         """Converts an fs path to a s3 key."""

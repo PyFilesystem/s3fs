@@ -1,5 +1,5 @@
 # coding: utf-8
-"""Defines the FTPOpener."""
+"""Defines the S3FSpener."""
 
 from __future__ import absolute_import
 from __future__ import print_function
@@ -7,8 +7,8 @@ from __future__ import unicode_literals
 
 __all__ = ['S3FSOpener']
 
-from fs.opener import Opener, OpenerError
-from fs.subfs import ClosingSubFS
+from fs.opener import Opener
+from fs.opener.errors import OpenerError
 
 from ._s3fs import S3FS
 
