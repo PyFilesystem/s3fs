@@ -56,9 +56,11 @@ def _make_repr(class_name, *args, **kwargs):
 
 
 class S3File(io.IOBase):
+    """Proxy for a S3 file."""
 
     @classmethod
     def factory(cls, filename, mode, on_close):
+        """Create a S3File backed with a temporary file."""
         _temp_file = tempfile.TemporaryFile()
         proxy = cls(_temp_file, filename, mode, on_close=on_close)
         return proxy
@@ -193,7 +195,7 @@ def s3errors(path):
 @six.python_2_unicode_compatible
 class S3FS(FS):
     """
-    An Amazon S3 filesystem for
+    Construct an Amazon S3 filesystem for
     `PyFilesystem <https://pyfilesystem.org>`_
 
     :param str bucket_name: The S3 bucket name.
@@ -465,6 +467,7 @@ class S3FS(FS):
         _key = self._path_to_key(_path)
 
         if _mode.create:
+
             def on_close(s3file):
                 try:
                     s3file.raw.seek(0)
@@ -589,7 +592,7 @@ class S3FS(FS):
             return True
         _key = self._path_to_dir_key(_path)
         try:
-            obj = self._get_object(path, _key)
+            self._get_object(path, _key)
         except errors.ResourceNotFound:
             return False
         else:

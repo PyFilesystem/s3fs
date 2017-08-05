@@ -28,9 +28,4 @@ class S3FSOpener(Opener):
             aws_access_key_id=parse_result.username or None,
             aws_secret_access_key=parse_result.password or None,
         )
-        s3fs = (
-            s3fs.opendir(dir_path, factory=ClosingSubFS)
-            if dir_path else
-            s3fs
-        )
         return s3fs
