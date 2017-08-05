@@ -6,7 +6,7 @@ with open('fs_s3fs/_version.py') as f:
     exec(f.read())
 
 CLASSIFIERS = [
-    'Development Status :: 5 - Production/Stable',
+    'Development Status :: 4 - Beta',
     'Intended Audience :: Developers',
     'License :: OSI Approved :: MIT License',
     'Operating System :: OS Independent',
