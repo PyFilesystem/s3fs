@@ -34,13 +34,16 @@ There are two options for constructing a :ref:`s3fs` instance. The simplest way
 is with an *opener*, which is a simple URL like syntax. Here is an example::
 
     from fs import open_fs
-    s3fs = S3FS('s3://mybucket/')
+    s3fs = open_fs('s3://mybucket/')
 
 For more granular control, you may import the S3FS class and construct
 it explicitly::
 
     from fs_s3fs import S3FS
     s3fs = S3FS('mybucket')
+
+See :class:`~fs_s3fs.S3FS` for other arguments you may pass to the
+constructor.
 
 
 Authentication

@@ -376,6 +376,19 @@ class S3FS(FS):
                     value = datetime_to_epoch(value)
                 s3info[name] = value
 
+        if 'urls' in namespaces:
+            url = self.client.generate_presigned_url(
+                ClientMethod='get_object',
+                Params={
+                    'Bucket': self._bucket_name,
+                    'Key': key
+                }
+            )
+            info['urls'] = {
+                'download': url
+            }
+
+
         return info
 
     def getinfo(self, path, namespaces=None):
