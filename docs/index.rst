@@ -93,8 +93,7 @@ URL from an S3 object. Here's an example:
 More Information
 ================
 
-See the `PyFilesystem Docs <https://docs.pyfilesystem.org>`_ for full
-details.
+See the `PyFilesystem Docs <https://docs.pyfilesystem.org>`_ for documentation on the rest of the PyFilesystem interface.
 
 
 Indices and tables

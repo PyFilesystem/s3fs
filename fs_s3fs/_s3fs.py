@@ -295,7 +295,7 @@ class S3FS(FS):
         _key = "{}/{}".format(
             self._prefix,
             _path
-        ).replace('/', self.delimiter)
+        ).lstrip('/').replace('/', self.delimiter)
         return _key
 
     def _path_to_dir_key(self, path):
@@ -304,7 +304,7 @@ class S3FS(FS):
         _key = forcedir("{}/{}".format(
             self._prefix,
             _path
-        )).replace('/', self.delimiter)
+        )).lstrip('/').replace('/', self.delimiter)
         return _key
 
     def _key_to_path(self, key):
