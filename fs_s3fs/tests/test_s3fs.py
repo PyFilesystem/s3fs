@@ -32,6 +32,7 @@ class TestS3FS(FSTestCases, unittest.TestCase):
                 Key=obj["Key"]
             )
 
+
 @attr('slow')
 class TestS3FSSubDir(FSTestCases, unittest.TestCase):
     """Test S3FS implementation from dir_path."""

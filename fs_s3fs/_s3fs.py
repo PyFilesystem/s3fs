@@ -375,7 +375,6 @@ class S3FS(FS):
                 if isinstance(value, datetime):
                     value = datetime_to_epoch(value)
                 s3info[name] = value
-
         if 'urls' in namespaces:
             url = self.client.generate_presigned_url(
                 ClientMethod='get_object',
@@ -387,8 +386,6 @@ class S3FS(FS):
             info['urls'] = {
                 'download': url
             }
-
-
         return info
 
     def getinfo(self, path, namespaces=None):
@@ -483,7 +480,8 @@ class S3FS(FS):
 
         if _mode.create:
 
-            def on_close(s3file):
+            def on_close_create(s3file):
+                """Called when the S3 file closes, to upload data."""
                 try:
                     s3file.raw.seek(0)
                     with s3errors(path):
@@ -503,7 +501,7 @@ class S3FS(FS):
                 if info.is_dir:
                     raise errors.FileExpected(path)
 
-            s3file = S3File.factory(path, _mode, on_close=on_close)
+            s3file = S3File.factory(path, _mode, on_close=on_close_create)
             if _mode.appending:
                 try:
                     with s3errors(path):
@@ -522,6 +520,7 @@ class S3FS(FS):
             raise errors.FileExpected(path)
 
         def on_close(s3file):
+            """Called when the S3 file closes, to upload the data."""
             try:
                 if _mode.writing:
                     s3file.raw.seek(0, os.SEEK_SET)
