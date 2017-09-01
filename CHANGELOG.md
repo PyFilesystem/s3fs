@@ -4,15 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [0.1.3] - 2017-09-01
 
 ### Fixed
 
-- Issue with duplicate nested directory names
+- Issue with duplicate nested directory names.
 
 ### Changed
 
-- Relaxed Boto requirement
+- Relaxed Boto requirement.
 
 ## [0.1.2] - 2017-08-29
 
