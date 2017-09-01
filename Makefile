@@ -8,12 +8,12 @@ release: readme
 
 .PHONY: test
 test:
-	nosetests --with-coverage --cover-erase --cover-package=fs_s3fs -a "!slow" fs_s3fs/tests
+	nosetests --with-coverage --cover-erase --logging-level=ERROR --cover-package=fs_s3fs -a "!slow" fs_s3fs/tests
 	rm .coverage
 
 .PHONY: slowtest
 slowtest:
-	nosetests --with-coverage --cover-erase --cover-package=fs_s3fs fs_s3fs/tests
+	nosetests --with-coverage --cover-erase --logging-level=ERROR --cover-package=fs_s3fs fs_s3fs/tests
 	rm .coverage
 
 .PHONY: testall
