@@ -127,7 +127,8 @@ class S3File(io.IOBase):
     def seek(self, offset, whence=os.SEEK_SET):
         if whence not in (os.SEEK_CUR, os.SEEK_END, os.SEEK_SET):
             raise ValueError("invalid value for 'whence'")
-        return self._f.seek(offset, whence)
+        self._f.seek(offset, whence)
+        return self._f.tell()
 
     def seekable(self):
         return True
@@ -155,12 +156,14 @@ class S3File(io.IOBase):
     def write(self, b):
         if not self.__mode.writing:
             raise IOError('not open for reading')
-        return self._f.write(b)
+        self._f.write(b)
+        return len(b)
 
     def truncate(self, size=None):
         if size is None:
             size = self._f.tell()
-        return self._f.truncate(size)
+        self._f.truncate(size)
+        return size
 
 
 @contextlib.contextmanager
@@ -205,8 +208,10 @@ class S3FS(FS):
         key from standard configuration files.
     :param str aws_secret_access_key: The secret key, or None to read
         the key from standard configuration files.
-    :param str aws_sssion_token:
-    :param str region: Option S3 region.
+    :param str endpoint_url: Alternative endpoint url (``None`` to use
+        default).
+    :param str aws_session_token:
+    :param str region: Optional S3 region.
     :param str delimiter: The delimiter to separate folders, defaults to
         a forward slash.
 
@@ -256,6 +261,7 @@ class S3FS(FS):
                  aws_access_key_id=None,
                  aws_secret_access_key=None,
                  aws_session_token=None,
+                 endpoint_url=None,
                  region=None,
                  delimiter='/'):
         _creds = (aws_access_key_id, aws_secret_access_key)
@@ -270,6 +276,7 @@ class S3FS(FS):
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
         self.aws_session_token = aws_session_token
+        self.endpoint_url = endpoint_url
         self.region = region
         self.delimiter = delimiter
         self._tlocal = threading.local()
@@ -331,7 +338,13 @@ class S3FS(FS):
     @property
     def s3(self):
         if not hasattr(self._tlocal, 's3'):
-            self._tlocal.s3 = boto3.resource('s3')
+            self._tlocal.s3 = boto3.resource(
+                's3',
+                aws_access_key_id=self.aws_access_key_id,
+                aws_secret_access_key=self.aws_secret_access_key,
+                aws_session_token=self.aws_session_token,
+                endpoint_url=self.endpoint_url
+            )
         return self._tlocal.s3
 
     @property
@@ -341,7 +354,8 @@ class S3FS(FS):
                 's3',
                 aws_access_key_id=self.aws_access_key_id,
                 aws_secret_access_key=self.aws_secret_access_key,
-                aws_session_token=self.aws_session_token
+                aws_session_token=self.aws_session_token,
+                endpoint_url=self.endpoint_url
             )
         return self._tlocal.client
 
@@ -663,7 +677,7 @@ class S3FS(FS):
 
     def setbytes(self, path, contents):
         if not isinstance(contents, bytes):
-            raise ValueError('contents must be bytes')
+            raise TypeError('contents must be bytes')
 
         _path = self.validatepath(path)
         _key = self._path_to_key(_path)
@@ -706,15 +720,20 @@ class S3FS(FS):
             raise errors.ResourceNotFound(dst_path)
         _src_key = self._path_to_key(_src_path)
         _dst_key = self._path_to_key(_dst_path)
-        with s3errors(src_path):
-            self.client.copy_object(
-                Bucket=self._bucket_name,
-                Key=_dst_key,
-                CopySource={
-                    'Bucket':self._bucket_name,
-                    'Key':_src_key
-                }
-            )
+        try:
+            with s3errors(src_path):
+                self.client.copy_object(
+                    Bucket=self._bucket_name,
+                    Key=_dst_key,
+                    CopySource={
+                        'Bucket':self._bucket_name,
+                        'Key':_src_key
+                    }
+                )
+        except errors.ResourceNotFound:
+            if self.exists(src_path):
+                raise errors.FileExpected(src_path)
+            raise
 
     def move(self, src_path, dst_path, overwrite=False):
         self.copy(src_path, dst_path, overwrite=overwrite)
