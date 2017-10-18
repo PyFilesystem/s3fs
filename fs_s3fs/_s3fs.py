@@ -214,6 +214,13 @@ class S3FS(FS):
     :param str region: Optional S3 region.
     :param str delimiter: The delimiter to separate folders, defaults to
         a forward slash.
+    :param bool strict: Validate correctness of the destination path.
+        For example, throw exception FileExpected() when a directory
+        path is supplied to ``setbinfile()`` method. 
+        These validations are quite expensive and normally can be 
+        safely disabled, assuming the client application doesn't mess 
+        with file paths intentionally.
+        Defaults to ``True``.
 
     """
 
@@ -263,7 +270,8 @@ class S3FS(FS):
                  aws_session_token=None,
                  endpoint_url=None,
                  region=None,
-                 delimiter='/'):
+                 delimiter='/',
+                 strict=True):
         _creds = (aws_access_key_id, aws_secret_access_key)
         if any(_creds) and not all(_creds):
             raise ValueError(
@@ -279,6 +287,7 @@ class S3FS(FS):
         self.endpoint_url = endpoint_url
         self.region = region
         self.delimiter = delimiter
+        self.strict = strict
         self._tlocal = threading.local()
         super(S3FS, self).__init__()
 
@@ -529,9 +538,10 @@ class S3FS(FS):
 
             return s3file
 
-        info = self.getinfo(path)
-        if info.is_dir:
-            raise errors.FileExpected(path)
+        if self.strict:
+            info = self.getinfo(path)
+            if info.is_dir:
+                raise errors.FileExpected(path)
 
         def on_close(s3file):
             """Called when the S3 file closes, to upload the data."""
@@ -557,9 +567,10 @@ class S3FS(FS):
         self.check()
         _path = self.validatepath(path)
         _key = self._path_to_key(_path)
-        info = self.getinfo(path)
-        if info.is_dir:
-            raise errors.FileExpected(path)
+        if self.strict:
+            info = self.getinfo(path)
+            if info.is_dir:
+                raise errors.FileExpected(path)
         self.client.delete_object(
             Bucket=self._bucket_name,
             Key=_key
@@ -681,14 +692,15 @@ class S3FS(FS):
 
         _path = self.validatepath(path)
         _key = self._path_to_key(_path)
-        if not self.isdir(dirname(path)):
-            raise errors.ResourceNotFound(path)
-        try:
-            info = self.getinfo(path)
-            if info.is_dir:
-                raise errors.FileExpected(path)
-        except errors.ResourceNotFound:
-            pass
+        if self.strict:
+            if not self.isdir(dirname(path)):
+                raise errors.ResourceNotFound(path)
+            try:
+                info = self.getinfo(path)
+                if info.is_dir:
+                    raise errors.FileExpected(path)
+            except errors.ResourceNotFound:
+                pass
 
         bytes_file = io.BytesIO(contents)
         with s3errors(path):
@@ -699,14 +711,16 @@ class S3FS(FS):
     def setbinfile(self, path, file):
         _path = self.validatepath(path)
         _key = self._path_to_key(_path)
-        if not self.isdir(dirname(path)):
-            raise errors.ResourceNotFound(path)
-        try:
-            info = self.getinfo(path)
-            if info.is_dir:
-                raise errors.FileExpected(path)
-        except errors.ResourceNotFound:
-            pass
+
+        if self.strict:
+            if not self.isdir(dirname(path)):
+                raise errors.ResourceNotFound(path)
+            try:
+                info = self.getinfo(path)
+                if info.is_dir:
+                    raise errors.FileExpected(path)
+            except errors.ResourceNotFound:
+                pass
 
         with s3errors(path):
             self.client.upload_fileobj(file, self._bucket_name, _key)
@@ -716,8 +730,9 @@ class S3FS(FS):
             raise errors.DestinationExists(dst_path)
         _src_path = self.validatepath(src_path)
         _dst_path = self.validatepath(dst_path)
-        if not self.isdir(dirname(_dst_path)):
-            raise errors.ResourceNotFound(dst_path)
+        if self.strict:
+            if not self.isdir(dirname(_dst_path)):
+                raise errors.ResourceNotFound(dst_path)
         _src_key = self._path_to_key(_src_path)
         _dst_key = self._path_to_key(_dst_path)
         try:
