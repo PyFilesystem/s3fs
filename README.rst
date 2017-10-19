@@ -17,6 +17,8 @@ Open an S3FS by explicitly using the constructor:
 
     from s3_s3fs import s3FS
     s3fs = S3FS('mybucket')
+    # to use an s3-compatible service
+    s3fs = S3FS('mybucket', endpoint_url='service.endpoint.url')
 
 Or with a FS URL:
 
@@ -24,6 +26,8 @@ Or with a FS URL:
 
     from fs import open_fs
     s3fs = open_fs('s3://mybucket')
+    # to use an s3-compatible service
+    s3fs = open_fs('s3://mybucket?endpoint_url=service.endpoint.url')
 
 Downloading Files
 -----------------

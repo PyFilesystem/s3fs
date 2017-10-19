@@ -27,5 +27,6 @@ class S3FSOpener(Opener):
             dir_path=dir_path or '/',
             aws_access_key_id=parse_result.username or None,
             aws_secret_access_key=parse_result.password or None,
+            endpoint_url=parse_result.params.get('endpoint_url', None)
         )
         return s3fs
