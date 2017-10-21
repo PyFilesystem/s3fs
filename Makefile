@@ -23,4 +23,4 @@ testall:
 .PHONY: docs
 docs:
 	cd docs && make html
-	python -c "import os, webbrowser; webbrowser.open('file://' + os.path.abspath('./docs/build/html/index.html'))"
+	python -c "import os, webbrowser; webbrowser.open('file://' + os.path.abspath('./docs/_build/html/index.html'))"

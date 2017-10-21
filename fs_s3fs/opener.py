@@ -22,6 +22,7 @@ class S3FSOpener(Opener):
             raise OpenerError(
                 "invalid bucket name in '{}'".format(fs_url)
             )
+        strict = parse_result.params.get('strict', 'y') == 'y'
         s3fs = S3FS(
             bucket_name,
             dir_path=dir_path or '/',

@@ -202,25 +202,22 @@ class S3FS(FS):
     `PyFilesystem <https://pyfilesystem.org>`_
 
     :param str bucket_name: The S3 bucket name.
-    :param str dir_path: The root directory within the S3 Bucker.
-        Defaults to "/""
-    :param str aws_access_key_id: The access key, or None to read the
-        key from standard configuration files.
-    :param str aws_secret_access_key: The secret key, or None to read
+    :param str dir_path: The root directory within the S3 Bucket.
+        Defaults to ``"/"``
+    :param str aws_access_key_id: The access key, or ``None`` to read
         the key from standard configuration files.
+    :param str aws_secret_access_key: The secret key, or ``None`` to
+        read the key from standard configuration files.
     :param str endpoint_url: Alternative endpoint url (``None`` to use
         default).
     :param str aws_session_token:
     :param str region: Optional S3 region.
     :param str delimiter: The delimiter to separate folders, defaults to
         a forward slash.
-    :param bool strict: Validate correctness of the destination path.
-        For example, throw exception FileExpected() when a directory
-        path is supplied to ``setbinfile()`` method. 
-        These validations are quite expensive and normally can be 
-        safely disabled, assuming the client application doesn't mess 
-        with file paths intentionally.
-        Defaults to ``True``.
+    :param bool strict: When ``True`` (default) S3FS will follow the
+        PyFilesystem specification exactly. Set to ``False`` to disable
+        validation of destination paths which may speed up uploads /
+        downloads.
 
     """
 
@@ -612,9 +609,10 @@ class S3FS(FS):
 
     def getbytes(self, path):
         self.check()
-        info = self.getinfo(path)
-        if not info.is_file:
-            raise errors.FileExpected(path)
+        if self.strict:
+            info = self.getinfo(path)
+            if not info.is_file:
+                raise errors.FileExpected(path)
         _path = self.validatepath(path)
         _key = self._path_to_key(_path)
         bytes_file = io.BytesIO()

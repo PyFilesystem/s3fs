@@ -42,8 +42,11 @@ it explicitly::
     from fs_s3fs import S3FS
     s3fs = S3FS('mybucket')
 
-See :class:`~fs_s3fs.S3FS` for other arguments you may pass to the
-constructor.
+S3FS Constructor
+----------------
+
+.. autoclass:: fs_s3fs.S3FS
+    :members:
 
 
 Authentication
