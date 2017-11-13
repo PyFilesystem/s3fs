@@ -365,6 +365,24 @@ class S3FS(FS):
             )
         return self._tlocal.client
 
+    def s3_upload(self, *args, **kwargs):
+        self.client.upload_fileobj(*args, **kwargs)
+
+    def s3_download(self, *args, **kwargs):
+        self.client.download_fileobj(*args, **kwargs)
+
+    def s3_copy(self, *args, **kwargs):
+        self.client.copy_object(*args, **kwargs)
+
+    def s3_list(self, *args, **kwargs):
+        return self.client.list_objects(*args, **kwargs)
+
+    def s3_delete(self, *args, **kwargs):
+        self.client.delete_object(*args, **kwargs)
+
+    def s3_generate_presigned_url(self, *args, **kwargs):
+        return self.client.generate_presigned_url(*args, **kwargs)
+
     def _info_from_object(self, obj, namespaces):
         """Make an info dict from an s3 Object."""
         key = obj.key
@@ -396,7 +414,7 @@ class S3FS(FS):
                     value = datetime_to_epoch(value)
                 s3info[name] = value
         if 'urls' in namespaces:
-            url = self.client.generate_presigned_url(
+            url = self.s3_generate_presigned_url(
                 ClientMethod='get_object',
                 Params={
                     'Bucket': self._bucket_name,
@@ -505,7 +523,7 @@ class S3FS(FS):
                 try:
                     s3file.raw.seek(0)
                     with s3errors(path):
-                        self.client.upload_fileobj(
+                        self.s3_upload(
                             s3file.raw, self._bucket_name, _key
                         )
                 finally:
@@ -525,7 +543,7 @@ class S3FS(FS):
             if _mode.appending:
                 try:
                     with s3errors(path):
-                        self.client.download_fileobj(
+                        self.s3_download(
                             self._bucket_name, _key, s3file.raw
                         )
                 except errors.ResourceNotFound:
@@ -546,7 +564,7 @@ class S3FS(FS):
                 if _mode.writing:
                     s3file.raw.seek(0, os.SEEK_SET)
                     with s3errors(path):
-                        self.client.upload_fileobj(
+                        self.s3_upload(
                             s3file.raw, self._bucket_name, _key
                         )
             finally:
@@ -554,7 +572,7 @@ class S3FS(FS):
 
         s3file = S3File.factory(path, _mode, on_close=on_close)
         with s3errors(path):
-            self.client.download_fileobj(
+            self.s3_download(
                 self._bucket_name, _key, s3file.raw
             )
         s3file.seek(0, os.SEEK_SET)
@@ -568,7 +586,7 @@ class S3FS(FS):
             info = self.getinfo(path)
             if info.is_dir:
                 raise errors.FileExpected(path)
-        self.client.delete_object(
+        self.s3_delete(
             Bucket=self._bucket_name,
             Key=_key
         )
@@ -577,7 +595,7 @@ class S3FS(FS):
         self.check()
         _path = self.validatepath(path)
         _key = self._path_to_dir_key(_path)
-        response = self.client.list_objects(
+        response = self.s3_list(
             Bucket=self._bucket_name,
             Prefix=_key,
             MaxKeys=2,
@@ -599,7 +617,7 @@ class S3FS(FS):
         if not self.isempty(path):
             raise errors.DirectoryNotEmpty(path)
         _key = self._path_to_dir_key(_path)
-        self.client.delete_object(
+        self.s3_delete(
             Bucket=self._bucket_name,
             Key=_key
         )
@@ -617,7 +635,7 @@ class S3FS(FS):
         _key = self._path_to_key(_path)
         bytes_file = io.BytesIO()
         with s3errors(path):
-            self.client.download_fileobj(
+            self.s3_download(
                 self._bucket_name, _key, bytes_file
             )
         return bytes_file.getvalue()
@@ -702,7 +720,7 @@ class S3FS(FS):
 
         bytes_file = io.BytesIO(contents)
         with s3errors(path):
-            self.client.upload_fileobj(
+            self.s3_upload(
                 bytes_file, self._bucket_name, _key
             )
 
@@ -721,7 +739,7 @@ class S3FS(FS):
                 pass
 
         with s3errors(path):
-            self.client.upload_fileobj(file, self._bucket_name, _key)
+            self.s3_upload(file, self._bucket_name, _key)
 
     def copy(self, src_path, dst_path, overwrite=False):
         if not overwrite and self.exists(dst_path):
@@ -735,7 +753,7 @@ class S3FS(FS):
         _dst_key = self._path_to_key(_dst_path)
         try:
             with s3errors(src_path):
-                self.client.copy_object(
+                self.s3_copy(
                     Bucket=self._bucket_name,
                     Key=_dst_key,
                     CopySource={
@@ -758,7 +776,7 @@ class S3FS(FS):
         if _path == '/':
             raise errors.NoURL(path, purpose)
         if purpose == 'download':
-            url = self.client.generate_presigned_url(
+            url = self.s3_generate_presigned_url(
                 ClientMethod='get_object',
                 Params={
                     'Bucket': self._bucket_name,
