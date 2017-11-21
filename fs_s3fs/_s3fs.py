@@ -346,6 +346,7 @@ class S3FS(FS):
         if not hasattr(self._tlocal, 's3'):
             self._tlocal.s3 = boto3.resource(
                 's3',
+                region_name=self.region,
                 aws_access_key_id=self.aws_access_key_id,
                 aws_secret_access_key=self.aws_secret_access_key,
                 aws_session_token=self.aws_session_token,
@@ -358,6 +359,7 @@ class S3FS(FS):
         if not hasattr(self._tlocal, 'client'):
             self._tlocal.client = boto3.client(
                 's3',
+                region_name=self.region,
                 aws_access_key_id=self.aws_access_key_id,
                 aws_secret_access_key=self.aws_secret_access_key,
                 aws_session_token=self.aws_session_token,

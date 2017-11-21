@@ -6,13 +6,20 @@ Amazon S3 cloud storage.
 As a PyFilesystem concrete class, [S3FS](http://fs-s3fs.readthedocs.io/en/latest/) allows you to work with S3 in the
 same way as any other supported filesystem.
 
+## Installing
+
+You can install S3FS from pip as follows:
+
+```
+pip install fs-s3fs
+```
 
 ## Opening a S3FS
 
 Open an S3FS by explicitly using the constructor:
 
 ```python
-from s3_s3fs import s3FS
+from s3_s3fs import S3FS
 s3fs = S3FS('mybucket')
 ```
 
