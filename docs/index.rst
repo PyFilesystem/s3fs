@@ -56,7 +56,7 @@ Amazon S3 isn't strictly speaking a *filesystem*, in that it contains
 files, but doesn't offer true *directories*. S3FS follows the convention
 of simulating directories by creating an object that ends in a forward
 slash. For instance, if you create a file called `"foo/bar"`, S3FS will
-create an *object* called `"foo/bar"` containing the file data *and* an
+create an S3 object for the file called `"foo/bar"` *and* an
 empty object called `"foo/"` which stores that fact that the `"foo"`
 directory exists.
 
