@@ -624,6 +624,19 @@ class S3FS(FS):
             )
         return bytes_file.getvalue()
 
+    def getfile(self, path, file, chunk_size=None, **options):
+        self.check()
+        if self.strict:
+            info = self.getinfo(path)
+            if not info.is_file:
+                raise errors.FileExpected(path)
+        _path = self.validatepath(path)
+        _key = self._path_to_key(_path)
+        with s3errors(path):
+            self.client.download_fileobj(
+                self._bucket_name, _key, file
+            )
+
     def exists(self, path):
         self.check()
         _path = self.validatepath(path)

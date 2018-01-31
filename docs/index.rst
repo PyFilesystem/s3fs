@@ -13,7 +13,6 @@ Amazon S3 cloud storage.
 As a PyFilesystem concrete class, S3FS allows you to work with S3 in the
 same as any other supported filesystem.
 
-
 Installing
 ==========
 
@@ -47,6 +46,28 @@ S3FS Constructor
 
 .. autoclass:: fs_s3fs.S3FS
     :members:
+
+
+Limitations
+===========
+
+Amazon S3 isn't strictly speaking a *filesystem*, in that it contains
+files, but doesn't offer true *directories*. S3FS follows the convention
+of simulating directories by creating an object that ends in a forward
+slash. For instance, if you create a file called `"foo/bar"`, S3FS will
+create an S3 object for the file called `"foo/bar"` *and* an
+empty object called `"foo/"` which stores that fact that the `"foo"`
+directory exists.
+
+If you create all your files and directories with S3FS, then you can
+forget about how things are stored under the hood. Everything will work
+as you expect. You *may* run in to problems if your data has been
+uploaded without the use of S3FS. For instance, if you create a
+`"foo/bar"` object without a `"foo/"` object. If this occurs, then S3FS
+may give errors about directories not existing, where you would expect
+them to be. The solution is to create an empty object for all
+directories and subdirectories. Fortunately most tools will do this for
+you, and it is probably only required of you upload your files manually.
 
 
 Authentication
