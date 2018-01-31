@@ -23,8 +23,8 @@ with open('README.rst', 'rt') as f:
     DESCRIPTION = f.read()
 
 REQUIREMENTS = [
-    "boto3~=1.4.0",
-    "fs~=2.0.12",
+    "boto3~=1.4",
+    "fs~=2.0.18",
     "six~=1.10.0"
 ]
 
