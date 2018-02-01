@@ -412,7 +412,7 @@ class S3FS(FS):
     def isdir(self, path):
         _path = self.validatepath(path)
         try:
-            return self._getinfo(_path).is_dir
+            return self.getinfo(_path).is_dir
         except errors.ResourceNotFound:
             return False
 
@@ -422,58 +422,46 @@ class S3FS(FS):
         _path = self.validatepath(path)
         _key = self._path_to_key(_path)
 
+        # Step 0: Special case of root
+        if _path == '/':
+            return Info({
+                "basic":
+                {
+                    "name": "",
+                    "is_dir": True
+                },
+                "details":
+                {
+                    "type": int(ResourceType.directory)
+                }
+            })
+        # Step 1: Test if this is a file
         try:
-            dir_path = dirname(_path)
-            if dir_path != '/':
-                _dir_key = self._path_to_dir_key(dir_path)
-                with s3errors(path):
-                    obj = self.s3.Object(
-                        self._bucket_name, _dir_key
-                    )
-                    obj.load()
+            obj = self._get_object(path, _key)
+            info = self._info_from_object(obj, namespaces)
+            return Info(info)
         except errors.ResourceNotFound:
-            raise errors.ResourceNotFound(path)
-
-        if _path == '/':
-            return Info({
-                "basic":
-                {
-                    "name": "",
-                    "is_dir": True
-                },
-                "details":
-                {
-                    "type": int(ResourceType.directory)
-                }
-            })
-
-        obj = self._get_object(path, _key)
-        info = self._info_from_object(obj, namespaces)
-        return Info(info)
-
-    def _getinfo(self, path, namespaces=None):
-        """Gets info without checking for parent dir."""
-        namespaces = namespaces or ()
-        _path = self.validatepath(path)
-        _key = self._path_to_key(_path)
-        if _path == '/':
-            return Info({
-                "basic":
-                {
-                    "name": "",
-                    "is_dir": True
-                },
-                "details":
-                {
-                    "type": int(ResourceType.directory)
-                }
-            })
-
-        obj = self._get_object(path, _key)
-        info = self._info_from_object(obj, namespaces)
-        return Info(info)
+            pass
+        # Step 2: If that fails then we might have a directory, so try listing it
+        # If it fails then we definitely don't have anything useful so let the exception propagate
+        _ = self._listdir(path, loop_guard=True)
+        # We haven't failed, so it's a directory
+        return Info({
+            "basic":
+            {
+                "name": _key,
+                "is_dir": True
+            },
+            "details":
+            {
+                "type": int(ResourceType.directory)
+            }
+        })
 
     def listdir(self, path):
+        return self._listdir(path)
+
+    def _listdir(self, path, loop_guard=False):
         _path = self.validatepath(path)
         _s3_key = self._path_to_dir_key(_path)
         prefix_len = len(_s3_key)
@@ -486,21 +474,27 @@ class S3FS(FS):
                 Delimiter=self.delimiter
             )
             _directory = []
+            has_anything = False
             for result in _paginate:
                 common_prefixes = result.get('CommonPrefixes', ())
                 for prefix in common_prefixes:
                     _prefix = prefix.get('Prefix')
                     _name = _prefix[prefix_len:]
+                    has_anything = True
                     if _name:
                         _directory.append(_name.rstrip(self.delimiter))
                 for obj in result.get('Contents', ()):
                     name = obj["Key"][prefix_len:]
+                    has_anything = True
                     if name:
                         _directory.append(name)
 
-        if not _directory:
+        if not _directory and not loop_guard:
             if not self.getinfo(_path).is_dir:
                 raise errors.DirectoryExpected(path)
+
+        if not has_anything and _path != '/':
+            raise errors.ResourceNotFound(path)
 
         return _directory
 
@@ -513,7 +507,7 @@ class S3FS(FS):
             raise errors.ResourceNotFound(path)
 
         try:
-            self._getinfo(path)
+            self.getinfo(path)
         except errors.ResourceNotFound:
             pass
         else:
@@ -554,7 +548,7 @@ class S3FS(FS):
                 raise errors.ResourceNotFound(path)
 
             try:
-                info = self._getinfo(path)
+                info = self.getinfo(path)
             except errors.ResourceNotFound:
                 pass
             else:
@@ -749,7 +743,7 @@ class S3FS(FS):
             if not self.isdir(dirname(path)):
                 raise errors.ResourceNotFound(path)
             try:
-                info = self._getinfo(path)
+                info = self.getinfo(path)
                 if info.is_dir:
                     raise errors.FileExpected(path)
             except errors.ResourceNotFound:
@@ -769,7 +763,7 @@ class S3FS(FS):
             if not self.isdir(dirname(path)):
                 raise errors.ResourceNotFound(path)
             try:
-                info = self._getinfo(path)
+                info = self.getinfo(path)
                 if info.is_dir:
                     raise errors.FileExpected(path)
             except errors.ResourceNotFound:
