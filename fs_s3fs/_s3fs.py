@@ -431,7 +431,6 @@ class S3FS(FS):
                         self._bucket_name, _dir_key
                     )
                     obj.load()
-                # self._get_object(dir_path, _dir_key)
         except errors.ResourceNotFound:
             raise errors.ResourceNotFound(path)
 
