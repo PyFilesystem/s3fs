@@ -24,6 +24,7 @@ from fs.base import FS
 from fs.info import Info
 from fs import errors
 from fs.mode import Mode
+from fs.subfs import SubFS
 from fs.path import basename, dirname, forcedir, join, normpath, relpath
 from fs.time import datetime_to_epoch
 
@@ -336,8 +337,6 @@ class S3FS(FS):
                 )
                 obj.load()
                 return obj
-        except Exception:
-            raise
         else:
             return obj
 
@@ -410,6 +409,13 @@ class S3FS(FS):
             }
         return info
 
+    def isdir(self, path):
+        _path = self.validatepath(path)
+        try:
+            return self._getinfo(_path).is_dir
+        except errors.ResourceNotFound:
+            return False
+
     def getinfo(self, path, namespaces=None):
         self.check()
         namespaces = namespaces or ()
@@ -420,10 +426,36 @@ class S3FS(FS):
             dir_path = dirname(_path)
             if dir_path != '/':
                 _dir_key = self._path_to_dir_key(dir_path)
-                self._get_object(dir_path, _dir_key)
+                with s3errors(path):
+                    obj = self.s3.Object(
+                        self._bucket_name, _dir_key
+                    )
+                    obj.load()
         except errors.ResourceNotFound:
             raise errors.ResourceNotFound(path)
 
+        if _path == '/':
+            return Info({
+                "basic":
+                {
+                    "name": "",
+                    "is_dir": True
+                },
+                "details":
+                {
+                    "type": int(ResourceType.directory)
+                }
+            })
+
+        obj = self._get_object(path, _key)
+        info = self._info_from_object(obj, namespaces)
+        return Info(info)
+
+    def _getinfo(self, path, namespaces=None):
+        """Gets info without checking for parent dir."""
+        namespaces = namespaces or ()
+        _path = self.validatepath(path)
+        _key = self._path_to_key(_path)
         if _path == '/':
             return Info({
                 "basic":
@@ -481,7 +513,7 @@ class S3FS(FS):
             raise errors.ResourceNotFound(path)
 
         try:
-            self.getinfo(path)
+            self._getinfo(path)
         except errors.ResourceNotFound:
             pass
         else:
@@ -491,7 +523,7 @@ class S3FS(FS):
                 raise errors.DirectoryExists(path)
         with s3errors(path):
             self.s3.Object(self._bucket_name, _key).put()
-        return self.opendir(path)
+        return SubFS(self, path)
 
     def openbin(self, path, mode="r", buffering=-1, **options):
         _mode = Mode(mode)
@@ -514,7 +546,15 @@ class S3FS(FS):
                     s3file.raw.close()
 
             try:
-                info = self.getinfo(path)
+                dir_path = dirname(_path)
+                if dir_path != '/':
+                    _dir_key = self._path_to_dir_key(dir_path)
+                    self._get_object(dir_path, _dir_key)
+            except errors.ResourceNotFound:
+                raise errors.ResourceNotFound(path)
+
+            try:
+                info = self._getinfo(path)
             except errors.ResourceNotFound:
                 pass
             else:
@@ -709,7 +749,7 @@ class S3FS(FS):
             if not self.isdir(dirname(path)):
                 raise errors.ResourceNotFound(path)
             try:
-                info = self.getinfo(path)
+                info = self._getinfo(path)
                 if info.is_dir:
                     raise errors.FileExpected(path)
             except errors.ResourceNotFound:
@@ -729,7 +769,7 @@ class S3FS(FS):
             if not self.isdir(dirname(path)):
                 raise errors.ResourceNotFound(path)
             try:
-                info = self.getinfo(path)
+                info = self._getinfo(path)
                 if info.is_dir:
                     raise errors.FileExpected(path)
             except errors.ResourceNotFound:
