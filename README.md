@@ -19,7 +19,7 @@ pip install fs-s3fs
 Open an S3FS by explicitly using the constructor:
 
 ```python
-from s3_s3fs import S3FS
+from fs_s3fs import S3FS
 s3fs = S3FS('mybucket')
 ```
 
