@@ -635,7 +635,10 @@ class S3FS(FS):
         _path = self.validatepath(path)
         if _path == '/':
             raise errors.RemoveRootError()
-        info = self.getinfo(_path)
+        try:
+            info = self.getinfo(_path)
+        except:
+            return
         if not info.is_dir:
             raise errors.DirectoryExpected(path)
         if not self.isempty(path):
