@@ -78,14 +78,15 @@ and secret key configured on your system. You may also specify when
 creating the filesystem instance. Here's how you would do that with an
 opener::
 
-    s3fs = open_fs('s3://<access key>:<secret key>@mybucket')
+    s3fs = open_fs('s3://<access key>:<secret key>@mybucket?endpoint_url=<url>')
 
 Here's how you specify credentials with the constructor::
 
     s3fs = S3FS(
         'mybucket'
         aws_access_key_id=<access key>,
-        aws_secret_access_key=<secret key>
+        aws_secret_access_key=<secret key>,
+        endpoint_url=<url>
     )
 
 .. note::
