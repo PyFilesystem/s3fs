@@ -29,14 +29,26 @@ the GitHub repos at https://github.com/pyfilesystem/s3fs
 Opening an S3 Filesystem
 ========================
 
-There are two options for constructing a :ref:`s3fs` instance. The simplest way
-is with an *opener*, which is a simple URL like syntax. Here is an example::
+There are two options for constructing a :ref:`s3fs` instance.
+
+============
+Implicitly
+============
+
+The simplest way is with an *opener*, which is a simple URL like syntax. Here is an example::
 
     from fs import open_fs
-    s3fs = open_fs('s3://mybucket/')
+    s3fs = open_fs('s3://mybucket')
 
-For more granular control, you may import the S3FS class and construct
-it explicitly::
+If your S3 instance is hosted elsewhere you may need to pass in the url. Here is an example where <url> is the url of the S3 application::
+
+    s3fs = open_fs('s3://mybucket?endpoint_url=<url>')
+
+==========
+Explicitly
+==========
+
+For more granular control, you may import the S3FS class and construct it explicitly::
 
     from fs_s3fs import S3FS
     s3fs = S3FS('mybucket')
