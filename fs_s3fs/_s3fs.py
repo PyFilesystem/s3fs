@@ -778,7 +778,7 @@ class S3FS(FS):
         with s3errors(path):
             self.client.upload_fileobj(file, self._bucket_name, _key)
 
-    def copy(self, src_path, dst_path, overwrite=False):
+    def copy(self, src_path, dst_path, overwrite=False, bucket=False):
         if not overwrite and self.exists(dst_path):
             raise errors.DestinationExists(dst_path)
         _src_path = self.validatepath(src_path)
@@ -791,7 +791,7 @@ class S3FS(FS):
         try:
             with s3errors(src_path):
                 self.client.copy_object(
-                    Bucket=self._bucket_name,
+                    Bucket=bucket or self._bucket_name,
                     Key=_dst_key,
                     CopySource={
                         'Bucket':self._bucket_name,
