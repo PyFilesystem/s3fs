@@ -75,8 +75,19 @@ import fs, fs.mirror
 s3fs = S3FS('example', upload_args={"CacheControl": "max-age=2592000", "ACL": "public-read"})
 fs.mirror.mirror('/path/to/mirror', s3fs)
 ```
+
 see [the Boto3 docs](https://boto3.readthedocs.io/en/latest/reference/customizations/s3.html#boto3.s3.transfer.S3Transfer.ALLOWED_UPLOAD_ARGS)
 for more information.
+
+`acl` and `cache_control` are exposed explicitly for convenience, and can be used in URLs.
+It is important to URL-Escape the `cache_control` value in a URL, as it may contain special characters.
+
+```python
+import fs, fs.mirror
+with open fs.open_fs('s3://example?acl=public-read&cache_control=max-age%3D2592000%2Cpublic') as s3fs
+    fs.mirror.mirror('/path/to/mirror', s3fs)
+```
+
 
 ## S3 URLs
 

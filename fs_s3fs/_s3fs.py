@@ -271,6 +271,8 @@ class S3FS(FS):
                  region=None,
                  delimiter='/',
                  strict=True,
+                 cache_control=None,
+                 acl=None,
                  upload_args=None,
                  download_args=None):
         _creds = (aws_access_key_id, aws_secret_access_key)
@@ -290,8 +292,13 @@ class S3FS(FS):
         self.delimiter = delimiter
         self.strict = strict
         self._tlocal = threading.local()
-        self.download_args = json.loads(download_args) if isinstance(download_args, str) else download_args
-        self.upload_args = json.loads(upload_args) if isinstance(upload_args, str) else upload_args
+        if cache_control or acl:
+            self.upload_args = upload_args or {}
+            self.upload_args['CacheControl'] = cache_control
+            self.upload_args['ACL'] = acl
+        else:
+            self.upload_args = upload_args
+        self.download_args = download_args
         super(S3FS, self).__init__()
 
     def __repr__(self):
