@@ -269,7 +269,9 @@ class S3FS(FS):
                  endpoint_url=None,
                  region=None,
                  delimiter='/',
-                 strict=True):
+                 strict=True,
+                 upload_args=None,
+                 download_args=None):
         _creds = (aws_access_key_id, aws_secret_access_key)
         if any(_creds) and not all(_creds):
             raise ValueError(
@@ -287,8 +289,8 @@ class S3FS(FS):
         self.delimiter = delimiter
         self.strict = strict
         self._tlocal = threading.local()
-        self.download_args = None
-        self.upload_args = None
+        self.download_args = upload_args
+        self.upload_args = download_args
         super(S3FS, self).__init__()
 
     def __repr__(self):
@@ -780,7 +782,7 @@ class S3FS(FS):
         with s3errors(path):
             self.client.upload_fileobj(file, self._bucket_name, _key, extra_args=self.upload_args)
 
-    def copy(self, src_path, dst_path, overwrite=False, bucket=False):
+    def copy(self, src_path, dst_path, overwrite=False):
         if not overwrite and self.exists(dst_path):
             raise errors.DestinationExists(dst_path)
         _src_path = self.validatepath(src_path)
@@ -793,7 +795,7 @@ class S3FS(FS):
         try:
             with s3errors(src_path):
                 self.client.copy_object(
-                    Bucket=bucket or self._bucket_name,
+                    Bucket=self._bucket_name,
                     Key=_dst_key,
                     CopySource={
                         'Bucket':self._bucket_name,
