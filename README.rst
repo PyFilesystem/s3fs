@@ -64,6 +64,27 @@ filesystem to the S3 filesystem. See `Moving and
 Copying <https://docs.pyfilesystem.org/en/latest/guide.html#moving-and-copying>`__
 for more information.
 
+ExtraArgs
+---------
+
+S3 objects have additional properties, beyond a traditional
+filesystem. These options can be set using the ``upload_args``
+and ``download_args`` properties. When set on an instantiated
+filesystem, they are handed to upload and download methods,
+as appropriate, for the lifetime of the filesystem instance.
+
+For example, to set the ``cache-control`` header of all objects
+uploaded to a bucket:
+
+.. code:: python
+    import fs, fs.mirror
+    with fs.open_fs('s3://bucket/') as bucket:
+        bucket.upload_args = {"CacheControl": "max-age=2592000", "ACL": "public-read"}
+        fs.mirror.mirror('/path/to/mirror', bucket)
+
+see `the Boto3 docs <https://boto3.readthedocs.io/en/latest/reference/customizations/s3.html#boto3.s3.transfer.S3Transfer.ALLOWED_UPLOAD_ARGS>`__
+for more information.
+
 S3 URLs
 -------
 
