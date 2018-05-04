@@ -294,8 +294,10 @@ class S3FS(FS):
         self._tlocal = threading.local()
         if cache_control or acl:
             upload_args = upload_args or {}
-            upload_args['CacheControl'] = cache_control
-            upload_args['ACL'] = acl
+            if cache_control:
+                upload_args['CacheControl'] = cache_control
+            if acl:
+                upload_args['ACL'] = acl
         self.upload_args = upload_args
         self.download_args = download_args
         super(S3FS, self).__init__()
