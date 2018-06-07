@@ -354,6 +354,10 @@ class S3FS(FS):
         else:
             return obj
 
+    def _upload_args(self, key):
+        mimetype = mimetypes.guess_type(key)[0] or 'binary/octet-stream'
+        return dict(ContentType=mimetype, **self.upload_args)
+
     @property
     def s3(self):
         if not hasattr(self._tlocal, 's3'):
@@ -545,7 +549,6 @@ class S3FS(FS):
         self.check()
         _path = self.validatepath(path)
         _key = self._path_to_key(_path)
-        self.upload_args['ContentType'] = mimetypes.guess_type(_key)[0] or 'binary/octet-stream'
 
         if _mode.create:
 
@@ -555,7 +558,7 @@ class S3FS(FS):
                     s3file.raw.seek(0)
                     with s3errors(path):
                         self.client.upload_fileobj(
-                            s3file.raw, self._bucket_name, _key, ExtraArgs=self.upload_args
+                            s3file.raw, self._bucket_name, _key, ExtraArgs=self._upload_args(_key)
                         )
                 finally:
                     s3file.raw.close()
@@ -604,7 +607,7 @@ class S3FS(FS):
                     s3file.raw.seek(0, os.SEEK_SET)
                     with s3errors(path):
                         self.client.upload_fileobj(
-                            s3file.raw, self._bucket_name, _key, ExtraArgs=self.upload_args
+                            s3file.raw, self._bucket_name, _key, ExtraArgs=self._upload_args(_key)
                         )
             finally:
                 s3file.raw.close()
@@ -773,7 +776,7 @@ class S3FS(FS):
         bytes_file = io.BytesIO(contents)
         with s3errors(path):
             self.client.upload_fileobj(
-                bytes_file, self._bucket_name, _key, ExtraArgs=self.upload_args
+                bytes_file, self._bucket_name, _key, ExtraArgs=self._upload_args(_key)
             )
 
     def setbinfile(self, path, file):
@@ -791,7 +794,7 @@ class S3FS(FS):
                 pass
 
         with s3errors(path):
-            self.client.upload_fileobj(file, self._bucket_name, _key, ExtraArgs=self.upload_args)
+            self.client.upload_fileobj(file, self._bucket_name, _key, self._upload_args(_key))
 
     def copy(self, src_path, dst_path, overwrite=False):
         if not overwrite and self.exists(dst_path):
