@@ -12,6 +12,7 @@ import os
 from ssl import SSLError
 import tempfile
 import threading
+import mimetypes
 import json
 
 import boto3
@@ -544,6 +545,7 @@ class S3FS(FS):
         self.check()
         _path = self.validatepath(path)
         _key = self._path_to_key(_path)
+        _mimetype = mimetypes.guess_type(_key)[0] or 'binary/octet-stream'
 
         if _mode.create:
 
@@ -553,7 +555,7 @@ class S3FS(FS):
                     s3file.raw.seek(0)
                     with s3errors(path):
                         self.client.upload_fileobj(
-                            s3file.raw, self._bucket_name, _key, ExtraArgs=self.upload_args
+                            s3file.raw, self._bucket_name, _key, ContentType=_mimetype, ExtraArgs=self.upload_args
                         )
                 finally:
                     s3file.raw.close()
@@ -602,7 +604,7 @@ class S3FS(FS):
                     s3file.raw.seek(0, os.SEEK_SET)
                     with s3errors(path):
                         self.client.upload_fileobj(
-                            s3file.raw, self._bucket_name, _key, ExtraArgs=self.upload_args
+                            s3file.raw, self._bucket_name, _key, ContentType=_mimetype, ExtraArgs=self.upload_args
                         )
             finally:
                 s3file.raw.close()
