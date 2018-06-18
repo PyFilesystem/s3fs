@@ -355,8 +355,11 @@ class S3FS(FS):
             return obj
 
     def _upload_args(self, key):
-        mimetype = mimetypes.guess_type(key)[0] or 'binary/octet-stream'
-        return dict(ContentType=mimetype, **self.upload_args)
+        if 'ContentType' not in self.upload_args:
+            mimetype = mimetypes.guess_type(key)[0] or 'binary/octet-stream'
+            return dict(ContentType=mimetype, **self.upload_args)
+        else:
+            return self.upload_args
 
     @property
     def s3(self):
