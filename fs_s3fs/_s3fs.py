@@ -543,7 +543,7 @@ class S3FS(FS):
             else:
                 raise errors.DirectoryExists(path)
         with s3errors(path):
-            self.s3.Object(self._bucket_name, _key).put()
+            self.s3.Object(self._bucket_name, _key).put(**self._upload_args(_key))
         return SubFS(self, path)
 
     def openbin(self, path, mode="r", buffering=-1, **options):
