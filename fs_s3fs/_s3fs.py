@@ -12,6 +12,7 @@ import os
 from ssl import SSLError
 import tempfile
 import threading
+import mimetypes
 import json
 
 import boto3
@@ -353,6 +354,13 @@ class S3FS(FS):
         else:
             return obj
 
+    def _upload_args(self, key):
+        if 'ContentType' not in self.upload_args:
+            mimetype = mimetypes.guess_type(key)[0] or 'binary/octet-stream'
+            return dict(ContentType=mimetype, **self.upload_args)
+        else:
+            return self.upload_args
+
     @property
     def s3(self):
         if not hasattr(self._tlocal, 's3'):
@@ -535,7 +543,7 @@ class S3FS(FS):
             else:
                 raise errors.DirectoryExists(path)
         with s3errors(path):
-            self.s3.Object(self._bucket_name, _key).put()
+            self.s3.Object(self._bucket_name, _key).put(**self._upload_args(_key))
         return SubFS(self, path)
 
     def openbin(self, path, mode="r", buffering=-1, **options):
@@ -553,7 +561,7 @@ class S3FS(FS):
                     s3file.raw.seek(0)
                     with s3errors(path):
                         self.client.upload_fileobj(
-                            s3file.raw, self._bucket_name, _key, ExtraArgs=self.upload_args
+                            s3file.raw, self._bucket_name, _key, ExtraArgs=self._upload_args(_key)
                         )
                 finally:
                     s3file.raw.close()
@@ -602,7 +610,7 @@ class S3FS(FS):
                     s3file.raw.seek(0, os.SEEK_SET)
                     with s3errors(path):
                         self.client.upload_fileobj(
-                            s3file.raw, self._bucket_name, _key, ExtraArgs=self.upload_args
+                            s3file.raw, self._bucket_name, _key, ExtraArgs=self._upload_args(_key)
                         )
             finally:
                 s3file.raw.close()
@@ -771,7 +779,7 @@ class S3FS(FS):
         bytes_file = io.BytesIO(contents)
         with s3errors(path):
             self.client.upload_fileobj(
-                bytes_file, self._bucket_name, _key, ExtraArgs=self.upload_args
+                bytes_file, self._bucket_name, _key, ExtraArgs=self._upload_args(_key)
             )
 
     def setbinfile(self, path, file):
@@ -789,7 +797,7 @@ class S3FS(FS):
                 pass
 
         with s3errors(path):
-            self.client.upload_fileobj(file, self._bucket_name, _key, ExtraArgs=self.upload_args)
+            self.client.upload_fileobj(file, self._bucket_name, _key, self._upload_args(_key))
 
     def copy(self, src_path, dst_path, overwrite=False):
         if not overwrite and self.exists(dst_path):
