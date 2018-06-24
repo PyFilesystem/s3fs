@@ -77,5 +77,5 @@ class TestS3FSHelpers(unittest.TestCase):
                              {'ACL': 'acl', 'CacheControl': 'cc', 'ContentType': 'audio/mpeg'})
         self.assertDictEqual(s3._get_upload_args('test.json'),
                              {'ACL': 'acl', 'CacheControl': 'cc', 'ContentType': 'application/json'})
-        self.assertDictEqual(s3._get_upload_args('unknown.ext'),
+        self.assertDictEqual(s3._get_upload_args('unknown.unknown'),
                              {'ACL': 'acl', 'CacheControl': 'cc', 'ContentType': 'binary/octet-stream'})
