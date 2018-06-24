@@ -221,6 +221,13 @@ class S3FS(FS):
         PyFilesystem specification exactly. Set to ``False`` to disable
         validation of destination paths which may speed up uploads /
         downloads.
+    :param str cache_control: Sets the 'Cache-Control' header for uploads.
+    :param str acl: Sets the Access Control List header for uploads.
+    :param dict upload_args: A dictionary for additional upload arguments.
+        See https://boto3.readthedocs.io/en/latest/reference/services/s3.html#S3.Object.put
+        for details.
+    :param dict download_args: Dictionary of extra arguments passed to
+        the S3 client.
 
     """
 
