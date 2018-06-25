@@ -71,11 +71,11 @@ class TestS3FSHelpers(unittest.TestCase):
 
     def test_upload_args(self):
         s3 = S3FS('foo', acl='acl', cache_control='cc')
-        self.assertDictEqual(s3._upload_args('test.jpg'),
+        self.assertDictEqual(s3._get_upload_args('test.jpg'),
                              {'ACL': 'acl', 'CacheControl': 'cc', 'ContentType': 'image/jpeg'})
-        self.assertDictEqual(s3._upload_args('test.mp3'),
+        self.assertDictEqual(s3._get_upload_args('test.mp3'),
                              {'ACL': 'acl', 'CacheControl': 'cc', 'ContentType': 'audio/mpeg'})
-        self.assertDictEqual(s3._upload_args('test.json'),
+        self.assertDictEqual(s3._get_upload_args('test.json'),
                              {'ACL': 'acl', 'CacheControl': 'cc', 'ContentType': 'application/json'})
-        self.assertDictEqual(s3._upload_args('unknown.ext'),
+        self.assertDictEqual(s3._get_upload_args('unknown.unknown'),
                              {'ACL': 'acl', 'CacheControl': 'cc', 'ContentType': 'binary/octet-stream'})

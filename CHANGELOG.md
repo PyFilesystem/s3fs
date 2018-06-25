@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.1.9] - 2018-06-24
+
+### Added
+
+- upload_args and download_args to constructor (Geoff Jukes)
+
 ## [0.1.8] - 2018-03-29
 
 ### Changed

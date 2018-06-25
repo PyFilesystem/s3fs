@@ -221,6 +221,13 @@ class S3FS(FS):
         PyFilesystem specification exactly. Set to ``False`` to disable
         validation of destination paths which may speed up uploads /
         downloads.
+    :param str cache_control: Sets the 'Cache-Control' header for uploads.
+    :param str acl: Sets the Access Control List header for uploads.
+    :param dict upload_args: A dictionary for additional upload arguments.
+        See https://boto3.readthedocs.io/en/latest/reference/services/s3.html#S3.Object.put
+        for details.
+    :param dict download_args: Dictionary of extra arguments passed to
+        the S3 client.
 
     """
 
@@ -354,12 +361,16 @@ class S3FS(FS):
         else:
             return obj
 
-    def _upload_args(self, key):
-        if 'ContentType' not in self.upload_args:
-            mimetype = mimetypes.guess_type(key)[0] or 'binary/octet-stream'
-            return dict(ContentType=mimetype, **self.upload_args)
-        else:
-            return self.upload_args
+    def _get_upload_args(self, key):
+        upload_args = (
+            self.upload_args.copy() if self.upload_args else {}
+        )
+        if 'ContentType' not in upload_args:
+            mime_type, _encoding = mimetypes.guess_type(key)
+            if six.PY2 and mime_type is not None:
+                mime_type = mime_type.decode('utf-8', 'replace')
+            upload_args['ContentType'] = mime_type or 'binary/octet-stream'
+        return upload_args
 
     @property
     def s3(self):
@@ -543,7 +554,8 @@ class S3FS(FS):
             else:
                 raise errors.DirectoryExists(path)
         with s3errors(path):
-            self.s3.Object(self._bucket_name, _key).put(**self._upload_args(_key))
+            _obj = self.s3.Object(self._bucket_name, _key)
+            _obj.put(**self._get_upload_args(_key))
         return SubFS(self, path)
 
     def openbin(self, path, mode="r", buffering=-1, **options):
@@ -561,7 +573,10 @@ class S3FS(FS):
                     s3file.raw.seek(0)
                     with s3errors(path):
                         self.client.upload_fileobj(
-                            s3file.raw, self._bucket_name, _key, ExtraArgs=self._upload_args(_key)
+                            s3file.raw,
+                            self._bucket_name,
+                            _key,
+                            ExtraArgs=self._get_upload_args(_key)
                         )
                 finally:
                     s3file.raw.close()
@@ -589,7 +604,10 @@ class S3FS(FS):
                 try:
                     with s3errors(path):
                         self.client.download_fileobj(
-                            self._bucket_name, _key, s3file.raw, ExtraArgs=self.download_args
+                            self._bucket_name,
+                            _key,
+                            s3file.raw,
+                            ExtraArgs=self.download_args
                         )
                 except errors.ResourceNotFound:
                     pass
@@ -610,7 +628,10 @@ class S3FS(FS):
                     s3file.raw.seek(0, os.SEEK_SET)
                     with s3errors(path):
                         self.client.upload_fileobj(
-                            s3file.raw, self._bucket_name, _key, ExtraArgs=self._upload_args(_key)
+                            s3file.raw,
+                            self._bucket_name,
+                            _key,
+                            ExtraArgs=self._get_upload_args(_key)
                         )
             finally:
                 s3file.raw.close()
@@ -618,7 +639,10 @@ class S3FS(FS):
         s3file = S3File.factory(path, _mode, on_close=on_close)
         with s3errors(path):
             self.client.download_fileobj(
-                self._bucket_name, _key, s3file.raw, ExtraArgs=self.download_args
+                self._bucket_name,
+                _key,
+                s3file.raw,
+                ExtraArgs=self.download_args
             )
         s3file.seek(0, os.SEEK_SET)
         return s3file
@@ -681,7 +705,10 @@ class S3FS(FS):
         bytes_file = io.BytesIO()
         with s3errors(path):
             self.client.download_fileobj(
-                self._bucket_name, _key, bytes_file, ExtraArgs=self.download_args
+                self._bucket_name,
+                _key,
+                bytes_file,
+                ExtraArgs=self.download_args
             )
         return bytes_file.getvalue()
 
@@ -695,7 +722,10 @@ class S3FS(FS):
         _key = self._path_to_key(_path)
         with s3errors(path):
             self.client.download_fileobj(
-                self._bucket_name, _key, file, ExtraArgs=self.download_args
+                self._bucket_name,
+                _key,
+                file,
+                ExtraArgs=self.download_args
             )
 
     def exists(self, path):
@@ -779,7 +809,10 @@ class S3FS(FS):
         bytes_file = io.BytesIO(contents)
         with s3errors(path):
             self.client.upload_fileobj(
-                bytes_file, self._bucket_name, _key, ExtraArgs=self._upload_args(_key)
+                bytes_file,
+                self._bucket_name,
+                _key,
+                ExtraArgs=self._get_upload_args(_key)
             )
 
     def setbinfile(self, path, file):
@@ -797,7 +830,12 @@ class S3FS(FS):
                 pass
 
         with s3errors(path):
-            self.client.upload_fileobj(file, self._bucket_name, _key, self._upload_args(_key))
+            self.client.upload_fileobj(
+                file,
+                self._bucket_name,
+                _key,
+                ExtraArgs=self._get_upload_args(_key)
+            )
 
     def copy(self, src_path, dst_path, overwrite=False):
         if not overwrite and self.exists(dst_path):
