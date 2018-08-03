@@ -211,6 +211,13 @@ class S3FS(FS):
         the key from standard configuration files.
     :param str aws_secret_access_key: The secret key, or ``None`` to
         read the key from standard configuration files.
+    :param bool use_ssl: Whether or not to use SSL. The default is ``True``.
+    :param bool or str verify: Whether or not to verify SSL certificates.  By
+        default SSL certificates are verified. Set to ``False`` to disable
+        verification of SSL certificates. To use a different CA cert bundle
+        than the one used by botocore, set this parameter to a string that is
+        the path to a CA cert bundle. The default is ``None``, which inherits
+        the default behavior of botocore.
     :param str endpoint_url: Alternative endpoint url (``None`` to use
         default).
     :param str aws_session_token:
@@ -275,6 +282,8 @@ class S3FS(FS):
                  aws_access_key_id=None,
                  aws_secret_access_key=None,
                  aws_session_token=None,
+                 use_ssl=True,
+                 verify=None,
                  endpoint_url=None,
                  region=None,
                  delimiter='/',
@@ -295,6 +304,8 @@ class S3FS(FS):
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
         self.aws_session_token = aws_session_token
+        self.use_ssl = use_ssl
+        self.verify = verify
         self.endpoint_url = endpoint_url
         self.region = region
         self.delimiter = delimiter
@@ -381,6 +392,8 @@ class S3FS(FS):
                 aws_access_key_id=self.aws_access_key_id,
                 aws_secret_access_key=self.aws_secret_access_key,
                 aws_session_token=self.aws_session_token,
+                use_ssl=self.use_ssl,
+                verify=self.verify,
                 endpoint_url=self.endpoint_url
             )
         return self._tlocal.s3
@@ -394,6 +407,8 @@ class S3FS(FS):
                 aws_access_key_id=self.aws_access_key_id,
                 aws_secret_access_key=self.aws_secret_access_key,
                 aws_session_token=self.aws_session_token,
+                use_ssl=self.use_ssl,
+                verify=self.verify,
                 endpoint_url=self.endpoint_url
             )
         return self._tlocal.client
