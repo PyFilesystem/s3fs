@@ -16,6 +16,7 @@ CLASSIFIERS = [
     'Programming Language :: Python :: 3.4',
     'Programming Language :: Python :: 3.5',
     'Programming Language :: Python :: 3.6',
+    'Programming Language :: Python :: 3.7',
     'Topic :: System :: Filesystems',
 ]
 
@@ -23,8 +24,8 @@ with open('README.rst', 'rt') as f:
     DESCRIPTION = f.read()
 
 REQUIREMENTS = [
-    "boto3~=1.4",
-    "fs~=2.0.18",
+    "boto3~=1.7",
+    "fs~=2.1",
     "six~=1.10"
 ]
 
