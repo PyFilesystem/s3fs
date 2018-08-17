@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+
+## [1.0.0] - 2018-08-17
+
+### Changed
+
+- Version number to advertise stable API
+
 ## [0.1.9] - 2018-06-24
 
 ### Added
