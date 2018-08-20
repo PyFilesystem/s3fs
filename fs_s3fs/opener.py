@@ -22,6 +22,14 @@ class S3FSOpener(Opener):
             raise OpenerError(
                 "invalid bucket name in '{}'".format(fs_url)
             )
+        use_ssl = (
+            parse_result.params['use_ssl'] == '1'
+            if 'use_ssl' in parse_result.params
+            else True
+        )
+        verify = parse_result.params.get('verify', None)
+        if verify == '':
+            verify = False
         strict = (
             parse_result.params['strict'] == '1'
             if 'strict' in parse_result.params
@@ -32,6 +40,8 @@ class S3FSOpener(Opener):
             dir_path=dir_path or '/',
             aws_access_key_id=parse_result.username or None,
             aws_secret_access_key=parse_result.password or None,
+            use_ssl=use_ssl,
+            verify=verify,
             endpoint_url=parse_result.params.get('endpoint_url', None),
             acl=parse_result.params.get('acl', None),
             cache_control=parse_result.params.get('cache_control', None),
