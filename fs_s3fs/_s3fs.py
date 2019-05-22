@@ -14,6 +14,7 @@ import tempfile
 import threading
 import mimetypes
 import json
+from urllib.parse import urlparse
 
 import boto3
 from botocore.exceptions import ClientError, EndpointConnectionError
@@ -29,6 +30,8 @@ from fs.mode import Mode
 from fs.subfs import SubFS
 from fs.path import basename, dirname, forcedir, join, normpath, relpath
 from fs.time import datetime_to_epoch
+
+from smart_open import open as sopen
 
 
 def _make_repr(class_name, *args, **kwargs):
@@ -521,6 +524,21 @@ class S3FS(FS):
             _obj.put(**self._get_upload_args(_key))
         return SubFS(self, path)
 
+    def _sopen(self, key, *args, **kwargs):
+        creds = f"{self.aws_access_key_id}:{self.aws_secret_access_key}"
+        server_port = ""
+        if self.endpoint_url:
+            parsed_url = urlparse(self.endpoint_url)
+            if parsed_url.netloc:
+                server_port = parsed_url.netloc
+            else:
+                server = parsed_url.path.split("/")[0]
+                server_port = f"{server}:80"
+        bucket_path = f"{self._bucket_name}/{key}"
+        string = "s3://" + "@".join(i for i in [creds, server_port, bucket_path] if i)
+        return sopen(string, *args, **kwargs)
+
+
     def openbin(self, path, mode="r", buffering=-1, **options):
         _mode = Mode(mode)
         _mode.validate_bin()
@@ -583,6 +601,9 @@ class S3FS(FS):
             info = self.getinfo(path)
             if info.is_dir:
                 raise errors.FileExpected(path)
+
+        if not _mode.create:
+            return S3File(self._sopen(_key, mode=mode), path, _mode)
 
         def on_close(s3file):
             """Called when the S3 file closes, to upload the data."""
