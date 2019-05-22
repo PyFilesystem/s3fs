@@ -602,9 +602,6 @@ class S3FS(FS):
             if info.is_dir:
                 raise errors.FileExpected(path)
 
-        if not _mode.create:
-            return S3File(self._sopen(_key, mode=mode), path, _mode)
-
         def on_close(s3file):
             """Called when the S3 file closes, to upload the data."""
             try:
@@ -620,13 +617,7 @@ class S3FS(FS):
             finally:
                 s3file.raw.close()
 
-        s3file = S3File.factory(path, _mode, on_close=on_close)
-        with s3errors(path):
-            self.client.download_fileobj(
-                self._bucket_name, _key, s3file.raw, ExtraArgs=self.download_args
-            )
-        s3file.seek(0, os.SEEK_SET)
-        return s3file
+        return S3File(self._sopen(_key, mode=mode), path, _mode, on_close=on_close)
 
     def remove(self, path):
         self.check()
