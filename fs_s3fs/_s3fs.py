@@ -14,6 +14,7 @@ import tempfile
 import threading
 import mimetypes
 import json
+from urllib.parse import urlparse
 
 import boto3
 from botocore.exceptions import ClientError, EndpointConnectionError
@@ -29,6 +30,8 @@ from fs.mode import Mode
 from fs.subfs import SubFS
 from fs.path import basename, dirname, forcedir, join, normpath, relpath
 from fs.time import datetime_to_epoch
+
+from smart_open import open as sopen
 
 
 def _make_repr(class_name, *args, **kwargs):
@@ -419,41 +422,28 @@ class S3FS(FS):
         path = self._key_to_path(key)
         name = basename(path.rstrip('/'))
         is_dir = key.endswith(self.delimiter)
-        info = {
-            "basic": {
-                "name": name,
-                "is_dir": is_dir
+        info = {"basic": {"name": name, "is_dir": is_dir}}
+        if "details" in namespaces:
+            _type = int(ResourceType.directory if is_dir else ResourceType.file)
+            info["details"] = {
+                "accessed": None,
+                "modified": datetime_to_epoch(obj.last_modified),
+                "size": obj.content_length,
+                "type": _type,
             }
-        }
-        if 'details' in namespaces:
-            _type = int(
-                ResourceType.directory if is_dir
-                else ResourceType.file
-            )
-            info['details'] = {
-                'accessed': None,
-                'modified': datetime_to_epoch(obj.last_modified),
-                'size': obj.content_length,
-                'type': _type
-            }
-        if 's3' in namespaces:
-            s3info = info['s3'] = {}
+        if "s3" in namespaces:
+            s3info = info["s3"] = {}
             for name in self._object_attributes:
                 value = getattr(obj, name, None)
                 if isinstance(value, datetime):
                     value = datetime_to_epoch(value)
                 s3info[name] = value
-        if 'urls' in namespaces:
+        if "urls" in namespaces:
             url = self.client.generate_presigned_url(
-                ClientMethod='get_object',
-                Params={
-                    'Bucket': self._bucket_name,
-                    'Key': key
-                }
+                ClientMethod="get_object",
+                Params={"Bucket": self._bucket_name, "Key": key},
             )
-            info['urls'] = {
-                'download': url
-            }
+            info["urls"] = {"download": url}
         return info
 
     def isdir(self, path):
@@ -572,6 +562,21 @@ class S3FS(FS):
             _obj = self.s3.Object(self._bucket_name, _key)
             _obj.put(**self._get_upload_args(_key))
         return SubFS(self, path)
+
+    def _sopen(self, key, *args, **kwargs):
+        creds = f"{self.aws_access_key_id}:{self.aws_secret_access_key}"
+        server_port = ""
+        if self.endpoint_url:
+            parsed_url = urlparse(self.endpoint_url)
+            if parsed_url.netloc:
+                server_port = parsed_url.netloc
+            else:
+                server = parsed_url.path.split("/")[0]
+                server_port = f"{server}:80"
+        bucket_path = f"{self._bucket_name}/{key}"
+        string = "s3://" + "@".join(i for i in [creds, server_port, bucket_path] if i)
+        return sopen(string, *args, **kwargs)
+
 
     def openbin(self, path, mode="r", buffering=-1, **options):
         _mode = Mode(mode)
@@ -709,7 +714,7 @@ class S3FS(FS):
     def setinfo(self, path, info):
         self.getinfo(path)
 
-    def getbytes(self, path):
+    def readbytes(self, path):
         self.check()
         if self.strict:
             info = self.getinfo(path)
@@ -727,7 +732,7 @@ class S3FS(FS):
             )
         return bytes_file.getvalue()
 
-    def getfile(self, path, file, chunk_size=None, **options):
+    def download(self, path, file, chunk_size=None, **options):
         self.check()
         if self.strict:
             info = self.getinfo(path)
@@ -805,7 +810,7 @@ class S3FS(FS):
         for info in iter_info:
             yield info
 
-    def setbytes(self, path, contents):
+    def writebytes(self, path, contents):
         if not isinstance(contents, bytes):
             raise TypeError('contents must be bytes')
 
@@ -830,7 +835,7 @@ class S3FS(FS):
                 ExtraArgs=self._get_upload_args(_key)
             )
 
-    def setbinfile(self, path, file):
+    def upload(self, path, file, chunk_size=None, **options):
         _path = self.validatepath(path)
         _key = self._path_to_key(_path)
 
