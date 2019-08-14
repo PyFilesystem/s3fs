@@ -13,7 +13,6 @@ from ssl import SSLError
 import tempfile
 import threading
 import mimetypes
-import json
 
 import boto3
 from botocore.exceptions import ClientError, EndpointConnectionError

@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.1.1] - 2019-08-14
+
+### Changed
+
+- Bumped FS to 2.4
+- Bumped Boto to 1.9
+
 ## [1.1.0] - 2018-01-01
 
 ### Changed
