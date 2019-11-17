@@ -1,5 +1,6 @@
 from __future__ import unicode_literals
 
+import os
 import unittest
 
 from nose.plugins.attrib import attr
@@ -9,11 +10,13 @@ from fs_s3fs import S3FS
 
 import boto3
 
+BUCKET_NAME = os.environ.get("S3FS_TEST_BUCKET", "fsexample")
+
 
 class TestS3FS(FSTestCases, unittest.TestCase):
     """Test S3FS implementation from dir_path."""
 
-    bucket_name = "fsexample"
+    bucket_name = BUCKET_NAME
     s3 = boto3.resource("s3")
     client = boto3.client("s3")
 
@@ -32,7 +35,7 @@ class TestS3FS(FSTestCases, unittest.TestCase):
 class TestS3FSSubDir(FSTestCases, unittest.TestCase):
     """Test S3FS implementation from dir_path."""
 
-    bucket_name = "fsexample"
+    bucket_name = BUCKET_NAME
     s3 = boto3.resource("s3")
     client = boto3.client("s3")
 
