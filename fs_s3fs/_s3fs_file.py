@@ -33,6 +33,11 @@ class S3InputFile(io.RawIOBase):
         self._s3_object = s3_object
         self._position = 0
         self._stream = None
+        self._closed = False
+
+    @property
+    def closed(self):
+        return self._closed
 
     @property
     def size(self):
@@ -105,6 +110,7 @@ class S3InputFile(io.RawIOBase):
         if self._stream:
             self._stream.close()
             self._stream = None
+        self._closed = True
 
     def readable(self):
         return True
