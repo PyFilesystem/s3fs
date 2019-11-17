@@ -25,6 +25,7 @@ from fs.mode import Mode
 from fs.subfs import SubFS
 from fs.path import basename, dirname, forcedir, join, normpath, relpath
 from fs.time import datetime_to_epoch
+from fs.tools import copy_file_data
 
 from ._s3fs_file import S3InputFile, S3OutputFile
 
@@ -417,9 +418,6 @@ class S3FS(FS):
         _path = self.validatepath(path)
         _key = self._path_to_key(_path)
 
-        if _mode.appending:
-            raise errors.ResourceError(path, msg="append mode is not supported")
-
         if _mode.create:
             if self.strict:
                 try:
@@ -441,10 +439,22 @@ class S3FS(FS):
                     raise errors.FileExpected(path)
 
             obj = self.s3.Object(self._bucket_name, _key)
-            return S3OutputFile(
+            s3_file = S3OutputFile(
                 obj,
                 upload_kwargs=self._get_upload_args(_key)
             )
+            if _mode.appending:
+                try:
+                    with s3errors(path):
+                        s3_in_file = S3InputFile(obj)
+                        copy_file_data(
+                            s3_in_file,
+                            s3_file,
+                            chunk_size=s3_file._min_part_size,
+                        )
+                except errors.ResourceNotFound:
+                    pass
+            return s3_file
 
         if self.strict:
             info = self.getinfo(path)
