@@ -31,6 +31,7 @@ class S3FSOpener(Opener):
             aws_access_key_id=parse_result.username or None,
             aws_secret_access_key=parse_result.password or None,
             endpoint_url=parse_result.params.get("endpoint_url", None),
+            region=parse_result.params.get("region", None),
             acl=parse_result.params.get("acl", None),
             cache_control=parse_result.params.get("cache_control", None),
             strict=strict,
