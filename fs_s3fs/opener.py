@@ -33,6 +33,7 @@ class S3FSOpener(Opener):
             endpoint_url=parse_result.params.get("endpoint_url", None),
             acl=parse_result.params.get("acl", None),
             cache_control=parse_result.params.get("cache_control", None),
+            region=parse_result.params.get("region", None),
             strict=strict,
         )
         return s3fs
