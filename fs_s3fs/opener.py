@@ -10,7 +10,7 @@ __all__ = ["S3FSOpener"]
 from fs.opener import Opener
 from fs.opener.errors import OpenerError
 
-from ._s3fs import S3FS
+from ._s3fs import S3FS, S3FSZero
 
 
 class S3FSOpener(Opener):
@@ -18,14 +18,19 @@ class S3FSOpener(Opener):
 
     def open_fs(self, fs_url, parse_result, writeable, create, cwd):
         bucket_name, _, dir_path = parse_result.resource.partition("/")
-        if not bucket_name:
-            raise OpenerError("invalid bucket name in '{}'".format(fs_url))
+        # if not bucket_name:
+        #    raise OpenerError("invalid bucket name in '{}'".format(fs_url))
         strict = (
             parse_result.params["strict"] == "1"
             if "strict" in parse_result.params
             else True
         )
-        s3fs = S3FS(
+        if bucket_name:
+            _S3FS = S3FS
+        else:
+            _S3FS = S3FSZero
+
+        s3fs = _S3FS(
             bucket_name,
             dir_path=dir_path or "/",
             aws_access_key_id=parse_result.username or None,
@@ -35,4 +40,5 @@ class S3FSOpener(Opener):
             cache_control=parse_result.params.get("cache_control", None),
             strict=strict,
         )
+
         return s3fs

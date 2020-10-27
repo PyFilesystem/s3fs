@@ -29,6 +29,7 @@ from fs.subfs import SubFS
 from fs.path import basename, dirname, forcedir, join, normpath, relpath
 from fs.time import datetime_to_epoch
 
+import copy
 
 def _make_repr(class_name, *args, **kwargs):
     """
@@ -61,10 +62,10 @@ class S3File(io.IOBase):
     """Proxy for a S3 file."""
 
     @classmethod
-    def factory(cls, filename, mode, on_close):
+    def factory(cls, bucket_name, filename, mode, on_close):
         """Create a S3File backed with a temporary file."""
         _temp_file = tempfile.TemporaryFile()
-        proxy = cls(_temp_file, filename, mode, on_close=on_close)
+        proxy = cls(_temp_file, bucket_name, filename, mode, on_close=on_close)
         return proxy
 
     def __repr__(self):
@@ -72,10 +73,12 @@ class S3File(io.IOBase):
             self.__class__.__name__, self.__filename, text_type(self.__mode)
         )
 
-    def __init__(self, f, filename, mode, on_close=None):
+    def __init__(self, f, bucket_name, filename, mode, on_close=None):
         self._f = f
         self.__filename = filename
+        self._bucket_name = bucket_name
         self.__mode = mode
+        #self.mode = mode
         self._on_close = on_close
 
     def __enter__(self):
@@ -151,7 +154,7 @@ class S3File(io.IOBase):
         return self._f.readall()
 
     def readinto(self, b):
-        return self._f.readinto()
+        return self._f.readinto(b)
 
     def write(self, b):
         if not self.__mode.writing:
@@ -264,7 +267,7 @@ class S3FS(FS):
 
     def __init__(
         self,
-        bucket_name,
+        bucket_name=None,
         dir_path="/",
         aws_access_key_id=None,
         aws_secret_access_key=None,
@@ -502,7 +505,6 @@ class S3FS(FS):
         self.check()
         _path = self.validatepath(path)
         _key = self._path_to_dir_key(_path)
-
         if not self.isdir(dirname(_path)):
             raise errors.ResourceNotFound(path)
 
@@ -518,11 +520,14 @@ class S3FS(FS):
         with s3errors(path):
             _obj = self.s3.Object(self._bucket_name, _key)
             _obj.put(**self._get_upload_args(_key))
-        return SubFS(self, path)
+            
+        bfs = S3FS(self._bucket_name, dir_path=self.dir_path)
+        return SubFS(bfs, path)
 
     def openbin(self, path, mode="r", buffering=-1, **options):
         _mode = Mode(mode)
         _mode.validate_bin()
+        _bucket_name_copy = self._bucket_name
         self.check()
         _path = self.validatepath(path)
         _key = self._path_to_key(_path)
@@ -534,9 +539,10 @@ class S3FS(FS):
                 try:
                     s3file.raw.seek(0)
                     with s3errors(path):
+
                         self.client.upload_fileobj(
                             s3file.raw,
-                            self._bucket_name,
+                            s3file._bucket_name,
                             _key,
                             ExtraArgs=self._get_upload_args(_key),
                         )
@@ -561,12 +567,12 @@ class S3FS(FS):
                 if info.is_dir:
                     raise errors.FileExpected(path)
 
-            s3file = S3File.factory(path, _mode, on_close=on_close_create)
+            s3file = S3File.factory(_bucket_name_copy, path, _mode, on_close=on_close_create)
             if _mode.appending:
                 try:
                     with s3errors(path):
                         self.client.download_fileobj(
-                            self._bucket_name,
+                            s3file._bucket_name,
                             _key,
                             s3file.raw,
                             ExtraArgs=self.download_args,
@@ -591,17 +597,17 @@ class S3FS(FS):
                     with s3errors(path):
                         self.client.upload_fileobj(
                             s3file.raw,
-                            self._bucket_name,
+                            s3file._bucket_name,
                             _key,
                             ExtraArgs=self._get_upload_args(_key),
                         )
             finally:
                 s3file.raw.close()
 
-        s3file = S3File.factory(path, _mode, on_close=on_close)
+        s3file = S3File.factory(_bucket_name_copy, path, _mode, on_close=on_close)
         with s3errors(path):
             self.client.download_fileobj(
-                self._bucket_name, _key, s3file.raw, ExtraArgs=self.download_args
+                s3file._bucket_name, _key, s3file.raw, ExtraArgs=self.download_args
             )
         s3file.seek(0, os.SEEK_SET)
         return s3file
@@ -688,6 +694,7 @@ class S3FS(FS):
 
     def scandir(self, path, namespaces=None, page=None):
         _path = self.validatepath(path)
+        _bucket_name_copy = self._bucket_name
         namespaces = namespaces or ()
         _s3_key = self._path_to_dir_key(_path)
         prefix_len = len(_s3_key)
@@ -698,7 +705,7 @@ class S3FS(FS):
 
         paginator = self.client.get_paginator("list_objects")
         _paginate = paginator.paginate(
-            Bucket=self._bucket_name, Prefix=_s3_key, Delimiter=self.delimiter
+            Bucket=_bucket_name_copy, Prefix=_s3_key, Delimiter=self.delimiter
         )
 
         def gen_info():
@@ -719,7 +726,7 @@ class S3FS(FS):
                     name = _obj["Key"][prefix_len:]
                     if name:
                         with s3errors(path):
-                            obj = self.s3.Object(self._bucket_name, _obj["Key"])
+                            obj = self.s3.Object(_bucket_name_copy, _obj["Key"])
                         info = self._info_from_object(obj, namespaces)
                         yield Info(info)
 
@@ -814,3 +821,297 @@ class S3FS(FS):
             return url
         else:
             raise errors.NoURL(path, purpose)
+
+
+@six.python_2_unicode_compatible
+class S3FSZero(S3FS):
+    """
+    Construct an Amazon S3 filesystem for
+    `PyFilesystem <https://pyfilesystem.org>`_
+
+    :param str bucket_name: The S3 bucket name.
+    :param str dir_path: The root directory within the S3 Bucket.
+        Defaults to ``"/"``
+    :param str aws_access_key_id: The access key, or ``None`` to read
+        the key from standard configuration files.
+    :param str aws_secret_access_key: The secret key, or ``None`` to
+        read the key from standard configuration files.
+    :param str endpoint_url: Alternative endpoint url (``None`` to use
+        default).
+    :param str aws_session_token:
+    :param str region: Optional S3 region.
+    :param str delimiter: The delimiter to separate folders, defaults to
+        a forward slash.
+    :param bool strict: When ``True`` (default) S3FS will follow the
+        PyFilesystem specification exactly. Set to ``False`` to disable
+        validation of destination paths which may speed up uploads /
+        downloads.
+    :param str cache_control: Sets the 'Cache-Control' header for uploads.
+    :param str acl: Sets the Access Control List header for uploads.
+    :param dict upload_args: A dictionary for additional upload arguments.
+        See https://boto3.readthedocs.io/en/latest/reference/services/s3.html#S3.Object.put
+        for details.
+    :param dict download_args: Dictionary of extra arguments passed to
+        the S3 client.
+
+    """
+
+    def _get_bucket_name(self, key):
+        _key = key #key[1:] if key[0] == '/' else key
+        _bucket, _key = (self._bucket_name, _key) if self._bucket_name else (_key.lstrip("/").split('/')[0], "/".join(_key.lstrip('/').split('/')[1:]))
+        return _bucket, _key
+
+    def isdir(self, path):
+        reset = self._bucket_name is None 
+        self._bucket_name, _path = self._get_bucket_name(path)
+
+        try:
+            res = super().isdir(_path)
+        finally:
+            if reset:
+                self._bucket_name = None
+        
+        return res
+
+
+    def getinfo(self, path, namespaces=None):
+        reset = self._bucket_name is None 
+        self._bucket_name, _path = self._get_bucket_name(path)
+
+        try:
+            res = super().getinfo(_path, namespaces)
+        finally:
+            if reset:
+                self._bucket_name = None
+        
+        return res
+      
+    def _getinfo(self, path, namespaces=None):
+        """Gets info without checking for parent dir."""
+        reset = self._bucket_name is None 
+        self._bucket_name, _path = self._get_bucket_name(path)
+
+        try:
+            res = super()._getinfo(_path, namespaces)
+        finally:
+            if reset:
+                self._bucket_name = None
+        
+        return res
+       
+
+    def listdir(self, path):
+        reset = self._bucket_name is None 
+        self._bucket_name, _path = self._get_bucket_name(path)
+        try:
+            res = super().listdir(_path)
+        finally:
+            if reset:
+                self._bucket_name = None
+        
+        return res
+
+    def makedir(self, path, permissions=None, recreate=False):
+        reset = self._bucket_name is None 
+        self._bucket_name, _path = self._get_bucket_name(path)
+
+        try:
+            res = super().makedir(_path, permissions, recreate)
+        finally:
+            if reset:
+                self._bucket_name = None
+                pass
+        
+        return res
+
+
+    def openbin(self, path, mode="r", buffering=-1, **options):
+        reset = self._bucket_name is None 
+        self._bucket_name, _path = self._get_bucket_name(path)
+
+        try:
+            res = super().openbin(_path, mode, buffering, **options)
+        finally:
+            if reset:
+                self._bucket_name = None
+        
+        return res
+     
+    def remove(self, path):
+        reset = self._bucket_name is None 
+        self._bucket_name, _path = self._get_bucket_name(path)
+
+        try:
+            super().remove(_path)
+        finally:
+            if reset:
+                self._bucket_name = None
+        
+    def isempty(self, path):
+        reset = self._bucket_name is None 
+        self._bucket_name, _path = self._get_bucket_name(path)
+
+        try:
+            res = super().isempty(_path)
+        finally:
+            if reset:
+                self._bucket_name = None
+        
+        return res
+
+    def removedir(self, path):
+        reset = self._bucket_name is None 
+        self._bucket_name, _path = self._get_bucket_name(path)
+
+        try:
+            super().removedir(_path)
+        finally:
+            if reset:
+                self._bucket_name = None
+
+    def setinfo(self, path, info):
+        self.getinfo(path)
+
+    def readbytes(self, path):
+        reset = self._bucket_name is None 
+        self._bucket_name, _path = self._get_bucket_name(path)
+
+        try:
+            res = super().readbytes(_path)
+        finally:
+            if reset:
+                self._bucket_name = None
+        
+        return res
+
+    def download(self, path, file, chunk_size=None, **options):
+        reset = self._bucket_name is None 
+        self._bucket_name, _path = self._get_bucket_name(path)
+
+        try:
+            super().download(_path, file, chunk_size, **options)
+        finally:
+            if reset:
+                self._bucket_name = None
+
+    def exists(self, path):
+        reset = self._bucket_name is None 
+        self._bucket_name, _path = self._get_bucket_name(path)
+
+        try:
+            res = super().exists(_path)
+        finally:
+            if reset:
+                self._bucket_name = None
+        
+        return res
+
+    def scandir(self, path, namespaces=None, page=None):
+
+        _path = self.validatepath(path)
+        _bucket_name, _path = self._get_bucket_name(_path)
+        _bucket_name_copy = _bucket_name
+        namespaces = namespaces or ()
+        _s3_key = self._path_to_dir_key(_path)
+        prefix_len = len(_s3_key)
+
+        info = self.getinfo(path)
+        if not info.is_dir:
+            raise errors.DirectoryExpected(path)
+
+        paginator = self.client.get_paginator("list_objects")
+        _paginate = paginator.paginate(
+            Bucket=_bucket_name_copy, Prefix=_s3_key, Delimiter=self.delimiter
+        )
+
+        def gen_info():
+            for result in _paginate:
+                common_prefixes = result.get("CommonPrefixes", ())
+                for prefix in common_prefixes:
+                    _prefix = prefix.get("Prefix")
+                    _name = _prefix[prefix_len:]
+                    if _name:
+                        info = {
+                            "basic": {
+                                "name": _name.rstrip(self.delimiter),
+                                "is_dir": True,
+                            }
+                        }
+                        yield Info(info)
+                for _obj in result.get("Contents", ()):
+                    name = _obj["Key"][prefix_len:]
+                    if name:
+                        with s3errors(path):
+                            obj = self.s3.Object(_bucket_name_copy, _obj["Key"])
+                        info = self._info_from_object(obj, namespaces)
+                        yield Info(info)
+
+        iter_info = iter(gen_info())
+        if page is not None:
+            start, end = page
+            iter_info = itertools.islice(iter_info, start, end)
+
+        for info in iter_info:
+            yield info
+
+
+    def writebytes(self, path, contents):
+        reset = self._bucket_name is None 
+        self._bucket_name, _path = self._get_bucket_name(path)
+
+        try:
+            super().writebytes(_path, contents)
+        finally:
+            if reset:
+                self._bucket_name = None
+
+
+    def upload(self, path, file, chunk_size=None, **options):
+        reset = self._bucket_name is None 
+        self._bucket_name, _path = self._get_bucket_name(path)
+
+        try:
+            super().upload(_path, file, chunk_size, **options)
+        finally:
+            if reset:
+                self._bucket_name = None
+
+    def copy(self, src_path, dst_path, overwrite=False):
+        if not overwrite and self.exists(dst_path):
+            raise errors.DestinationExists(dst_path)
+        _src_path = self.validatepath(src_path)
+        _dst_path = self.validatepath(dst_path)
+        if self.strict:
+            if not self.isdir(dirname(_dst_path)):
+                raise errors.ResourceNotFound(dst_path)
+        _src_key = self._path_to_key(_src_path)
+        _src_bucket, _src_key = self._get_bucket_name(_src_key)
+        _dst_key = self._path_to_key(_dst_path)
+        _dst_bucket, _dst_key = self._get_bucket_name(_dst_key)
+        try:
+            with s3errors(src_path):
+                self.client.copy_object(
+                    Bucket=_dst_bucket,
+                    Key=_dst_key,
+                    CopySource={"Bucket": _src_bucket, "Key": _src_key},
+                )
+        except errors.ResourceNotFound:
+            if self.exists(src_path):
+                raise errors.FileExpected(src_path)
+            raise
+
+    def move(self, src_path, dst_path, overwrite=False):
+        self.copy(src_path, dst_path, overwrite=overwrite)
+        self.remove(src_path)
+
+    def geturl(self, path, purpose="download"):
+        reset = self._bucket_name is None 
+        self._bucket_name, _path = self._get_bucket_name(path)
+
+        try:
+            res = super().geturl(_path, purpose)
+        finally:
+            if reset:
+                self._bucket_name = None
+        
+        return res
