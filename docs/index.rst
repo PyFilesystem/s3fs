@@ -68,9 +68,9 @@ may give errors about directories not existing, where you would expect
 them to be. One solution is to create an empty object for all
 directories and subdirectories. Fortunately most tools will do this for
 you, and it is probably only required of you upload your files manually.
-Alternatively you may be able to get away with creating a `S3FS` object
-directly and passing ``strict=False`` to bypass some consistency checks
-which will fail if empty objects in an object's prefix exist.
+Alternatively you may be able to get away with creating the `S3FS` object
+directly with ``strict=False`` to bypass some consistency checks
+which could fail when empty objects are missing.
 
 
 Authentication
