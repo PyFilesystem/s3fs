@@ -4,7 +4,9 @@ S3FS is a [PyFilesystem](https://www.pyfilesystem.org/) interface to
 Amazon S3 cloud storage.
 
 As a PyFilesystem concrete class, [S3FS](http://fs-s3fs.readthedocs.io/en/latest/) allows you to work with S3 in the
-same way as any other supported filesystem.
+same way as any other supported filesystem. Note that as S3 is not strictly
+speaking a filesystem there are some limitations which are discussed in detail
+in the [documentation](https://fs-s3fs.readthedocs.io/en/latest/#limitations).
 
 ## Installing
 
