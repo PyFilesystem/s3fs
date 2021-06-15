@@ -6,7 +6,10 @@ Amazon S3 cloud storage.
 
 As a PyFilesystem concrete class,
 `S3FS <http://fs-s3fs.readthedocs.io/en/latest/>`__ allows you to work
-with S3 in the same way as any other supported filesystem.
+with S3 in the same way as any other supported filesystem. Note that as
+S3 is not strictly speaking a filesystem there are some limitations
+which are discussed in detail in the
+`documentation <https://fs-s3fs.readthedocs.io/en/latest/#limitations>`__.
 
 Installing
 ----------
@@ -15,7 +18,7 @@ You can install S3FS from pip as follows:
 
 ::
 
-    pip install fs-s3fs
+   pip install fs-s3fs
 
 Opening a S3FS
 --------------
@@ -24,37 +27,37 @@ Open an S3FS by explicitly using the constructor:
 
 .. code:: python
 
-    from fs_s3fs import S3FS
-    s3fs = S3FS('mybucket')
+   from fs_s3fs import S3FS
+   s3fs = S3FS('mybucket')
 
 Or with a FS URL:
 
 .. code:: python
 
-      from fs import open_fs
-      s3fs = open_fs('s3://mybucket')
+     from fs import open_fs
+     s3fs = open_fs('s3://mybucket')
 
 Downloading Files
 -----------------
 
 To *download* files from an S3 bucket, open a file on the S3 filesystem
 for reading, then write the data to a file on the local filesystem.
-Here's an example that copies a file ``example.mov`` from S3 to your HD:
+Here’s an example that copies a file ``example.mov`` from S3 to your HD:
 
 .. code:: python
 
-    from fs.tools import copy_file_data
-    with s3fs.open('example.mov', 'rb') as remote_file:
-        with open('example.mov', 'wb') as local_file:
-            copy_file_data(remote_file, local_file)
+   from fs.tools import copy_file_data
+   with s3fs.open('example.mov', 'rb') as remote_file:
+       with open('example.mov', 'wb') as local_file:
+           copy_file_data(remote_file, local_file)
 
 Although it is preferable to use the higher-level functionality in the
-``fs.copy`` module. Here's an example:
+``fs.copy`` module. Here’s an example:
 
 .. code:: python
 
-    from fs.copy import copy_file
-    copy_file(s3fs, 'example.mov', './', 'example.mov')
+   from fs.copy import copy_file
+   copy_file(s3fs, 'example.mov', './', 'example.mov')
 
 Uploading Files
 ---------------
@@ -77,9 +80,9 @@ to a bucket:
 
 .. code:: python
 
-    import fs, fs.mirror
-    s3fs = S3FS('example', upload_args={"CacheControl": "max-age=2592000", "ACL": "public-read"})
-    fs.mirror.mirror('/path/to/mirror', s3fs)
+   import fs, fs.mirror
+   s3fs = S3FS('example', upload_args={"CacheControl": "max-age=2592000", "ACL": "public-read"})
+   fs.mirror.mirror('/path/to/mirror', s3fs)
 
 see `the Boto3
 docs <https://boto3.readthedocs.io/en/latest/reference/customizations/s3.html#boto3.s3.transfer.S3Transfer.ALLOWED_UPLOAD_ARGS>`__
@@ -91,9 +94,9 @@ and can be used in URLs. It is important to URL-Escape the
 
 .. code:: python
 
-    import fs, fs.mirror
-    with open fs.open_fs('s3://example?acl=public-read&cache_control=max-age%3D2592000%2Cpublic') as s3fs
-        fs.mirror.mirror('/path/to/mirror', s3fs)
+   import fs, fs.mirror
+   with open fs.open_fs('s3://example?acl=public-read&cache_control=max-age%3D2592000%2Cpublic') as s3fs
+       fs.mirror.mirror('/path/to/mirror', s3fs)
 
 S3 URLs
 -------
@@ -102,7 +105,7 @@ You can get a public URL to a file on a S3 bucket as follows:
 
 .. code:: python
 
-    movie_url = s3fs.geturl('example.mov')
+   movie_url = s3fs.geturl('example.mov')
 
 Documentation
 -------------
