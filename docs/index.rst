@@ -88,10 +88,19 @@ Here's how you specify credentials with the constructor::
         aws_secret_access_key=<secret key>
     )
 
+
 .. note::
 
     Amazon recommends against specifying credentials explicitly like
     this in production.
+
+Another posibility is using `profile_name`, which will read the credentials 
+for said profile from the standard configuration files::
+
+    s3fs = S3FS(
+        'mybucket'
+        profile_name=<profile_name>
+    )
 
 
 S3 Info
