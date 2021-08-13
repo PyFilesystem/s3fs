@@ -207,6 +207,9 @@ class S3FS(FS):
     :param str endpoint_url: Alternative endpoint url (``None`` to use
         default).
     :param str aws_session_token:
+    :param str profile_name: The name of the profile_name from which credentials 
+        should be taken (read from standard configuration files). Can be used instead 
+        of passing access key id and secret access key for non-default profiles.
     :param str region: Optional S3 region.
     :param str delimiter: The delimiter to separate folders, defaults to
         a forward slash.
@@ -269,6 +272,8 @@ class S3FS(FS):
         aws_access_key_id=None,
         aws_secret_access_key=None,
         aws_session_token=None,
+        profile_name
+        profile_name=None,
         endpoint_url=None,
         region=None,
         delimiter="/",
@@ -279,11 +284,20 @@ class S3FS(FS):
         download_args=None,
     ):
         _creds = (aws_access_key_id, aws_secret_access_key)
+        if any(_creds) and profile_name
+        profile_name:
+            raise ValueError(
+                "profile_name
+                "profile_name and aws_access_key/secret cannot be used together"
+            )
         if any(_creds) and not all(_creds):
             raise ValueError(
                 "aws_access_key_id and aws_secret_access_key "
                 "must be set together if specified"
             )
+        if profile_name:
+            credentials = boto3.session.Session(profile_name=profile_name).get_credentials()
+            aws_access_key_id, aws_secret_access_key = credentials.access_key, credentials.secret_key
         self._bucket_name = bucket_name
         self.dir_path = dir_path
         self._prefix = relpath(normpath(dir_path)).rstrip("/")
