@@ -801,7 +801,7 @@ class S3FS(FS):
         self.copy(src_path, dst_path, overwrite=overwrite)
         self.remove(src_path)
 
-    def geturl(self, path, purpose="download"):
+    def geturl(self, path, purpose="download", expiration=3600, **extra_params):
         _path = self.validatepath(path)
         _key = self._path_to_key(_path)
         if _path == "/":
@@ -809,7 +809,8 @@ class S3FS(FS):
         if purpose == "download":
             url = self.client.generate_presigned_url(
                 ClientMethod="get_object",
-                Params={"Bucket": self._bucket_name, "Key": _key},
+                Params={"Bucket": self._bucket_name, "Key": _key, **extra_params},
+                ExpiresIn=expiration
             )
             return url
         else:
