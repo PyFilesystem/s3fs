@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.1.2] - 2024-01-09
+
+### Fixed
+
+- fs.copydir is now working again with the latest version of FS - see [issue #90](https://github.com/PyFilesystem/s3fs/issues/90)
+
 ## [1.1.1] - 2019-08-14
 
 ### Changed
