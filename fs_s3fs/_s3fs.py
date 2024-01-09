@@ -775,7 +775,9 @@ class S3FS(FS):
                 file, self._bucket_name, _key, ExtraArgs=self._get_upload_args(_key)
             )
 
-    def copy(self, src_path, dst_path, overwrite=False):
+    def copy(self, src_path, dst_path, overwrite=False, preserve_time=False):
+        if preserve_time:
+            raise NotImplementedError("preserve_time is not yet supported with S3 backend")
         if not overwrite and self.exists(dst_path):
             raise errors.DestinationExists(dst_path)
         _src_path = self.validatepath(src_path)
