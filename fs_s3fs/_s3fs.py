@@ -28,6 +28,7 @@ from fs.mode import Mode
 from fs.subfs import SubFS
 from fs.path import basename, dirname, forcedir, join, normpath, relpath
 from fs.time import datetime_to_epoch
+from urllib.parse import unquote
 
 
 def _make_repr(class_name, *args, **kwargs):
@@ -716,10 +717,11 @@ class S3FS(FS):
                         }
                         yield Info(info)
                 for _obj in result.get("Contents", ()):
-                    name = _obj["Key"][prefix_len:]
+                    _key = unquote(_obj["Key"])
+                    name = _key[prefix_len:]
                     if name:
                         with s3errors(path):
-                            obj = self.s3.Object(self._bucket_name, _obj["Key"])
+                            obj = self.s3.Object(self._bucket_name, _key)
                         info = self._info_from_object(obj, namespaces)
                         yield Info(info)
 
