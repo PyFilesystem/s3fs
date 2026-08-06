@@ -5,7 +5,10 @@ import unittest
 from nose.plugins.attrib import attr
 
 from fs.test import FSTestCases
+from fs.mode import Mode
+
 from fs_s3fs import S3FS
+from fs_s3fs._s3fs import S3File
 
 import boto3
 
@@ -46,6 +49,46 @@ class TestS3FSSubDir(FSTestCases, unittest.TestCase):
         contents = response.get("Contents", ())
         for obj in contents:
             self.client.delete_object(Bucket=self.bucket_name, Key=obj["Key"])
+
+
+class TestS3FileClose(unittest.TestCase):
+    """A failed write must not publish a partial object.
+
+    S3File buffers writes in a temporary file and uploads once, when the file is
+    closed. If the writer raises part way through, the buffer holds a truncated copy
+    that nothing downstream can distinguish from a complete file, so it is discarded
+    rather than uploaded.
+    """
+
+    def _make_file(self, uploaded):
+        return S3File.factory(
+            "test.bin", Mode("wb"), on_close=lambda s3file: uploaded.append(s3file)
+        )
+
+    def test_uploads_when_the_block_completes(self):
+        uploaded = []
+        with self._make_file(uploaded) as s3file:
+            s3file.write(b"complete")
+        self.assertEqual(len(uploaded), 1)
+
+    def test_does_not_upload_when_the_block_raises(self):
+        uploaded = []
+        with self.assertRaises(ValueError):
+            with self._make_file(uploaded) as s3file:
+                s3file.write(b"partial")
+                raise ValueError("writer failed part way through")
+        self.assertEqual(uploaded, [])
+
+    def test_discarding_leaves_nothing_to_upload_later(self):
+        # io.IOBase.__del__ calls close(), so discard() has to make that a no-op or
+        # the abandoned buffer is uploaded anyway once the object is collected.
+        uploaded = []
+        s3file = self._make_file(uploaded)
+        s3file.write(b"partial")
+        s3file.discard()
+        s3file.close()
+        self.assertEqual(uploaded, [])
+        self.assertTrue(s3file.closed)
 
 
 class TestS3FSHelpers(unittest.TestCase):
