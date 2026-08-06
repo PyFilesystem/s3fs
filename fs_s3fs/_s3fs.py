@@ -82,7 +82,10 @@ class S3File(io.IOBase):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
+        if exc_type is None:
+            self.close()
+        else:
+            self.discard()
 
     @property
     def raw(self):
@@ -91,6 +94,17 @@ class S3File(io.IOBase):
     def close(self):
         if self._on_close is not None:
             self._on_close(self)
+
+    def discard(self):
+        """Close the file without uploading, abandoning anything written to it.
+
+        Writes are buffered in a temporary file and uploaded in a single call when
+        the file is closed, so a write that fails part way through has not reached
+        S3 yet. Uploading at that point publishes a truncated object that no reader
+        can tell apart from a complete one, so the buffer is thrown away instead.
+        """
+        self._on_close = None
+        self._f.close()
 
     @property
     def closed(self):
