@@ -22,6 +22,7 @@ from six import text_type
 
 from fs import ResourceType
 from fs.base import FS
+from fs.copy import copy_modified_time
 from fs.info import Info
 from fs import errors
 from fs.mode import Mode
@@ -83,6 +84,10 @@ class S3File(io.IOBase):
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
+
+    @property
+    def mode(self):
+        return self.__mode.to_platform_bin()
 
     @property
     def raw(self):
@@ -151,7 +156,7 @@ class S3File(io.IOBase):
         return self._f.readall()
 
     def readinto(self, b):
-        return self._f.readinto()
+        return self._f.readinto(b)
 
     def write(self, b):
         if not self.__mode.writing:
@@ -775,11 +780,15 @@ class S3FS(FS):
                 file, self._bucket_name, _key, ExtraArgs=self._get_upload_args(_key)
             )
 
-    def copy(self, src_path, dst_path, overwrite=False):
+    def copy(self, src_path, dst_path, overwrite=False, preserve_time=False):
         if not overwrite and self.exists(dst_path):
             raise errors.DestinationExists(dst_path)
         _src_path = self.validatepath(src_path)
         _dst_path = self.validatepath(dst_path)
+        if _src_path == _dst_path:
+            # IllegalDestination was introduced after PyFilesystem 2.4.16.
+            error = getattr(errors, "IllegalDestination", errors.OperationFailed)
+            raise error(dst_path)
         if self.strict:
             if not self.isdir(dirname(_dst_path)):
                 raise errors.ResourceNotFound(dst_path)
@@ -797,8 +806,18 @@ class S3FS(FS):
                 raise errors.FileExpected(src_path)
             raise
 
-    def move(self, src_path, dst_path, overwrite=False):
-        self.copy(src_path, dst_path, overwrite=overwrite)
+        if preserve_time:
+            copy_modified_time(self, src_path, self, dst_path)
+
+    def move(self, src_path, dst_path, overwrite=False, preserve_time=False):
+        if self.validatepath(src_path) == self.validatepath(dst_path):
+            info = self.getinfo(src_path)
+            if not overwrite:
+                raise errors.DestinationExists(dst_path)
+            if info.is_dir:
+                raise errors.FileExpected(src_path)
+            return
+        self.copy(src_path, dst_path, overwrite=overwrite, preserve_time=preserve_time)
         self.remove(src_path)
 
     def geturl(self, path, purpose="download"):

@@ -111,3 +111,31 @@ Documentation
 -  `S3FS Reference <http://fs-s3fs.readthedocs.io/en/latest/>`__
 -  `PyFilesystem
    Reference <https://docs.pyfilesystem.org/en/latest/reference/base.html>`__
+
+FS Next migration for Python 3.10+
+---------------------------------
+
+This branch proposes using ``fs-next>=0.1.1,<0.2`` on Python 3.10 and later.
+Older Python versions retain ``fs~=2.4``. The ``fs_s3fs`` import and ``s3://``
+opener remain unchanged. Install into a fresh environment: ``fs`` and
+``fs-next`` provide overlapping files and must not coexist. Any other package
+requiring ``fs`` must migrate its dependency metadata as well.
+
+The migration includes ``preserve_time`` argument compatibility, safe same-path
+copy/move handling and binary stream ``mode`` / ``readinto`` corrections.
+S3 controls LastModified timestamps; ``preserve_time=True`` is best effort and
+does not preserve S3's LastModified value (``setinfo`` cannot change it).
+
+To run the complete FS Next contract on bucket roots and prefixes without an
+AWS account or credentials::
+
+    python -m pip install . pytest "moto[s3]==5.2.3"
+    python -m pip check
+    python -I -m pytest tests/test_fs_next.py -q -ra
+
+Moto exercises local S3 API behavior. It does not certify live AWS IAM,
+network failures or provider-specific behavior. This branch is an independent
+migration proposal, not a new upstream PyPI release. Related upstream fixes
+were already proposed in `PR #81 <https://github.com/PyFilesystem/s3fs/pull/81>`_
+(readinto) and `PR #92 <https://github.com/PyFilesystem/s3fs/pull/92>`_
+(preserve_time); the contract suite reproduces those failures.
